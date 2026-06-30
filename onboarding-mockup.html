@@ -1,0 +1,1562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CafeOSum — Cafe Setup Wizard (F-02)</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --brown-dark:  #3B1F0E;
+      --brown-mid:   #7C4A1E;
+      --brown-light: #C08040;
+      --gold:        #D4A017;
+      --gold-light:  #F0C040;
+      --cream:       #FDF8F2;
+      --white:       #FFFFFF;
+      --gray-50:     #F9F5F0;
+      --gray-100:    #F0EBE3;
+      --gray-200:    #DDD5C8;
+      --gray-400:    #9E8E7E;
+      --gray-600:    #6B5B4E;
+      --green:       #2E8B57;
+      --green-bg:    #E8F5EE;
+      --amber:       #D97706;
+      --amber-bg:    #FEF3C7;
+      --red:         #DC2626;
+      --red-bg:      #FEE2E2;
+      --red-border:  #FCA5A5;
+      --blue:        #1D4ED8;
+      --blue-bg:     #EFF6FF;
+      --blue-border: #BFDBFE;
+      --sidebar-w:   256px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--gray-50);
+      color: var(--brown-dark);
+      min-height: 100vh;
+      padding-top: 38px; /* demo bar */
+    }
+
+    /* ── DEMO NAV BAR ── */
+    .demo-bar {
+      position: fixed; top: 0; left: 0; right: 0;
+      background: var(--brown-dark);
+      padding: 7px 16px;
+      display: flex; align-items: center; gap: 6px;
+      z-index: 200;
+      font-size: 11px;
+      color: rgba(255,255,255,0.5);
+      flex-wrap: wrap;
+    }
+    .demo-label { font-weight: 700; color: var(--gold-light); margin-right: 4px; white-space: nowrap; }
+    .demo-tab {
+      padding: 3px 11px; border-radius: 20px;
+      border: 1px solid rgba(255,255,255,0.2);
+      color: rgba(255,255,255,0.6); cursor: pointer;
+      font-size: 11px; font-weight: 500; font-family: inherit;
+      background: transparent; transition: all 0.15s; white-space: nowrap;
+    }
+    .demo-tab:hover { background: rgba(255,255,255,0.1); color: white; }
+    .demo-tab.active { background: var(--gold); color: var(--brown-dark); border-color: var(--gold); font-weight: 700; }
+
+    /* ── TOP BAR ── */
+    .topbar {
+      position: sticky; top: 38px;
+      background: var(--white);
+      border-bottom: 1px solid var(--gray-100);
+      z-index: 100;
+    }
+    .topbar-inner {
+      display: flex; align-items: center;
+      padding: 0 24px; height: 56px; gap: 16px;
+    }
+    .logo { display: flex; align-items: center; gap: 8px; }
+    .logo-icon {
+      width: 32px; height: 32px; background: var(--brown-dark);
+      border-radius: 8px; display: flex; align-items: center;
+      justify-content: center; color: var(--gold-light); font-size: 16px;
+    }
+    .logo-text { font-size: 16px; font-weight: 700; color: var(--brown-dark); }
+    .logo-text span { color: var(--gold); }
+    .topbar-divider { width: 1px; height: 28px; background: var(--gray-100); }
+    .topbar-title { font-size: 14px; font-weight: 600; color: var(--brown-dark); }
+    .topbar-step-badge {
+      padding: 3px 10px; border-radius: 20px;
+      background: var(--cream); border: 1px solid var(--gray-200);
+      font-size: 12px; font-weight: 600; color: var(--brown-mid);
+    }
+    .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+    .autosave-pill {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 12px; color: var(--green);
+      background: var(--green-bg); padding: 4px 10px;
+      border-radius: 20px; font-weight: 500;
+    }
+    .save-exit-btn {
+      font-size: 13px; color: var(--gray-600); cursor: pointer;
+      background: none; border: 1px solid var(--gray-200);
+      border-radius: 7px; padding: 5px 14px; font-family: inherit;
+      font-weight: 500;
+    }
+    .save-exit-btn:hover { background: var(--gray-50); }
+
+    /* Progress bar */
+    .progress-wrap {
+      height: 3px; background: var(--gray-100);
+    }
+    .progress-fill {
+      height: 100%; background: var(--brown-mid);
+      transition: width 0.4s ease;
+    }
+
+    /* ── LAYOUT ── */
+    .layout {
+      display: flex;
+      min-height: calc(100vh - 38px - 59px);
+    }
+
+    /* ── STEP SIDEBAR ── */
+    .step-sidebar {
+      width: var(--sidebar-w);
+      background: var(--white);
+      border-right: 1px solid var(--gray-100);
+      padding: 24px 16px;
+      flex-shrink: 0;
+      position: sticky;
+      top: 97px; /* demo + topbar */
+      height: calc(100vh - 97px);
+      overflow-y: auto;
+    }
+    .sidebar-section-label {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.8px;
+      text-transform: uppercase; color: var(--gray-400);
+      margin-bottom: 12px; padding-left: 4px;
+    }
+    .step-item {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 10px 10px; border-radius: 10px;
+      margin-bottom: 4px; cursor: pointer;
+      transition: background 0.15s;
+    }
+    .step-item:hover { background: var(--gray-50); }
+    .step-item.active { background: var(--cream); }
+    .step-badge {
+      width: 26px; height: 26px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; flex-shrink: 0;
+      border: 2px solid var(--gray-200); color: var(--gray-400);
+      background: var(--white);
+    }
+    .step-item.active .step-badge {
+      background: var(--brown-dark); color: white; border-color: var(--brown-dark);
+    }
+    .step-item.done .step-badge {
+      background: var(--green-bg); color: var(--green); border-color: var(--green);
+      font-size: 14px;
+    }
+    .step-item.done .step-title { color: var(--gray-400); text-decoration: line-through; }
+    .step-info { flex: 1; min-width: 0; }
+    .step-title { font-size: 13px; font-weight: 600; color: var(--brown-dark); }
+    .step-item.active .step-title { color: var(--brown-dark); }
+    .step-sub { font-size: 11px; color: var(--gray-400); margin-top: 2px; }
+    .step-connector {
+      width: 2px; height: 10px; background: var(--gray-100);
+      margin-left: 20px; border-radius: 1px;
+    }
+
+    /* ── MAIN CONTENT ── */
+    .main-content {
+      flex: 1;
+      padding: 32px 40px;
+      max-width: 740px;
+    }
+
+    .step-header { margin-bottom: 24px; }
+    .step-heading { font-size: 22px; font-weight: 700; color: var(--brown-dark); margin-bottom: 6px; letter-spacing: -0.3px; }
+    .step-subheading { font-size: 14px; color: var(--gray-400); line-height: 1.5; }
+
+    /* ── CARDS ── */
+    .card {
+      background: var(--white);
+      border: 1px solid var(--gray-100);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 16px;
+    }
+    .card-title {
+      font-size: 14px; font-weight: 700; color: var(--brown-dark);
+      margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
+    }
+    .card-title span { font-size: 16px; }
+
+    /* ── FORM ── */
+    .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .field-grid.three { grid-template-columns: 1fr 1fr 1fr; }
+    .field-full { grid-column: 1 / -1; }
+
+    .field { margin-bottom: 0; }
+    label {
+      display: block; font-size: 12px; font-weight: 600;
+      color: var(--brown-dark); margin-bottom: 5px; letter-spacing: 0.1px;
+    }
+    .opt-tag {
+      font-size: 10px; font-weight: 500; color: var(--gray-400);
+      background: var(--gray-100); border-radius: 4px;
+      padding: 1px 5px; margin-left: 5px; vertical-align: middle;
+    }
+    .req-star { color: var(--red); margin-left: 2px; }
+
+    .input-wrap { position: relative; display: flex; align-items: center; }
+    .input-icon { position: absolute; left: 11px; color: var(--gray-400); font-size: 14px; pointer-events: none; }
+
+    input[type="text"], input[type="email"], input[type="tel"],
+    input[type="number"], select, textarea {
+      width: 100%;
+      padding: 9px 11px 9px 34px;
+      border: 1px solid var(--gray-200);
+      border-radius: 8px;
+      font-size: 13px; color: var(--brown-dark);
+      background: var(--gray-50); outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      font-family: inherit;
+      appearance: none;
+    }
+    input.no-icon { padding-left: 11px; }
+    select { padding-left: 11px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239E8E7E' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px; }
+    textarea { padding-left: 11px; resize: vertical; min-height: 72px; }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--brown-mid);
+      box-shadow: 0 0 0 3px rgba(124,74,30,0.1);
+      background: var(--white);
+    }
+    input.error-field { border-color: var(--red); background: var(--red-bg); }
+    input.error-field:focus { box-shadow: 0 0 0 3px rgba(220,38,38,0.1); }
+    input.valid-field { border-color: var(--green); background: var(--green-bg); }
+    .field-error { font-size: 11px; color: var(--red); margin-top: 4px; }
+    .field-hint  { font-size: 11px; color: var(--gray-400); margin-top: 4px; line-height: 1.4; }
+    .field-ok    { font-size: 11px; color: var(--green); margin-top: 4px; }
+
+    /* ── LOGO UPLOAD ── */
+    .logo-upload {
+      display: flex; align-items: center; gap: 16px;
+    }
+    .logo-preview {
+      width: 64px; height: 64px; border-radius: 12px;
+      background: var(--gray-100); border: 2px dashed var(--gray-200);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px; flex-shrink: 0;
+    }
+    .logo-upload-btn {
+      padding: 7px 16px; border: 1px solid var(--gray-200);
+      border-radius: 8px; font-size: 12px; font-weight: 600;
+      color: var(--brown-mid); background: var(--white); cursor: pointer;
+      font-family: inherit;
+    }
+    .logo-upload-btn:hover { background: var(--gray-50); }
+    .logo-upload-hint { font-size: 11px; color: var(--gray-400); margin-top: 4px; }
+
+    /* ── CATEGORY CHIPS ── */
+    .chip-group { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip {
+      padding: 5px 12px; border-radius: 20px;
+      border: 1px solid var(--gray-200); font-size: 12px; font-weight: 500;
+      color: var(--gray-600); cursor: pointer; background: var(--white);
+      transition: all 0.15s; font-family: inherit;
+    }
+    .chip:hover { border-color: var(--brown-mid); color: var(--brown-mid); }
+    .chip.selected { background: var(--brown-dark); color: white; border-color: var(--brown-dark); }
+
+    /* ── GST INFO CARD ── */
+    .info-card {
+      background: var(--blue-bg); border: 1px solid var(--blue-border);
+      border-radius: 10px; padding: 12px 14px;
+      display: flex; gap: 10px; font-size: 13px; color: var(--blue);
+      margin-bottom: 16px;
+    }
+    .info-card-icon { font-size: 15px; flex-shrink: 0; }
+
+    /* ── TOGGLE ── */
+    .toggle-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 0; border-bottom: 1px solid var(--gray-100);
+    }
+    .toggle-row:last-child { border-bottom: none; }
+    .toggle-label { font-size: 13px; font-weight: 600; color: var(--brown-dark); }
+    .toggle-sub { font-size: 12px; color: var(--gray-400); margin-top: 2px; }
+    .toggle {
+      width: 40px; height: 22px; border-radius: 11px;
+      background: var(--gray-200); position: relative;
+      cursor: pointer; transition: background 0.2s; flex-shrink: 0;
+    }
+    .toggle.on { background: var(--green); }
+    .toggle::after {
+      content: ''; position: absolute; top: 2px; left: 2px;
+      width: 18px; height: 18px; border-radius: 50%;
+      background: white; transition: left 0.2s;
+    }
+    .toggle.on::after { left: 20px; }
+
+    /* ── MENU ITEMS TABLE ── */
+    .menu-item-row {
+      display: grid;
+      grid-template-columns: 1fr 90px 110px 80px 36px;
+      gap: 8px; align-items: center;
+      padding: 10px 0; border-bottom: 1px solid var(--gray-100);
+    }
+    .menu-item-row.header {
+      padding-bottom: 8px; border-bottom: 2px solid var(--gray-100);
+    }
+    .menu-col-label {
+      font-size: 11px; font-weight: 700; color: var(--gray-400);
+      text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .menu-item-row.demo-row input { background: var(--cream); }
+    .demo-tag {
+      font-size: 10px; background: var(--amber-bg); color: var(--amber);
+      border-radius: 4px; padding: 1px 5px; font-weight: 600;
+    }
+    .del-btn {
+      width: 28px; height: 28px; border-radius: 6px;
+      border: 1px solid var(--gray-200); background: var(--white);
+      color: var(--red); cursor: pointer; font-size: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-family: inherit;
+    }
+    .del-btn:hover { background: var(--red-bg); border-color: var(--red); }
+    .add-item-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 0 4px; margin-top: 4px;
+    }
+    .add-item-btn {
+      display: flex; align-items: center; gap: 6px;
+      padding: 7px 14px; border-radius: 8px;
+      border: 1px dashed var(--brown-mid); background: var(--cream);
+      color: var(--brown-mid); font-size: 13px; font-weight: 600;
+      cursor: pointer; font-family: inherit;
+    }
+    .add-item-btn:hover { background: var(--gray-100); }
+    .csv-hint {
+      font-size: 12px; color: var(--gray-400); display: flex;
+      align-items: center; gap: 5px; margin-left: auto;
+    }
+    .csv-tag {
+      font-size: 10px; background: var(--gray-100); color: var(--gray-400);
+      border-radius: 4px; padding: 1px 5px; font-weight: 600;
+    }
+    .item-count-pill {
+      font-size: 12px; color: var(--gray-600);
+      background: var(--gray-100); border-radius: 20px; padding: 3px 10px;
+      margin-left: 8px;
+    }
+
+    /* ── TABLE GRID (preview) ── */
+    .table-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+    .table-tile {
+      width: 80px; height: 72px; border-radius: 10px;
+      border: 2px solid var(--green); background: var(--green-bg);
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 4px; cursor: pointer;
+    }
+    .table-tile.empty {
+      border: 2px dashed var(--gray-200); background: var(--gray-50);
+    }
+    .table-icon { font-size: 20px; }
+    .table-name-label { font-size: 11px; font-weight: 600; color: var(--green); }
+    .table-seats-label { font-size: 10px; color: var(--gray-400); }
+    .table-add-tile {
+      width: 80px; height: 72px; border-radius: 10px;
+      border: 2px dashed var(--gray-200); background: var(--white);
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; cursor: pointer; color: var(--gray-400);
+      font-size: 22px; gap: 4px;
+    }
+    .table-add-tile:hover { border-color: var(--brown-mid); color: var(--brown-mid); }
+    .table-add-tile span { font-size: 11px; font-weight: 500; }
+
+    .table-form-row {
+      display: grid; grid-template-columns: 1fr 120px 36px;
+      gap: 8px; align-items: center; padding: 8px 0;
+      border-bottom: 1px solid var(--gray-100);
+    }
+    .table-form-row.header { padding-bottom: 8px; }
+
+    /* ── STEP 5: COMPLETION ── */
+    .completion-header {
+      text-align: center; padding: 32px 0 24px;
+    }
+    .completion-icon {
+      width: 72px; height: 72px; border-radius: 50%;
+      background: var(--green-bg); display: flex; align-items: center;
+      justify-content: center; font-size: 32px; margin: 0 auto 16px;
+    }
+    .completion-title { font-size: 26px; font-weight: 700; color: var(--brown-dark); margin-bottom: 6px; }
+    .completion-sub { font-size: 14px; color: var(--gray-400); line-height: 1.6; }
+
+    .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+    .summary-tile {
+      background: var(--gray-50); border: 1px solid var(--gray-100);
+      border-radius: 10px; padding: 14px 16px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .summary-icon { font-size: 22px; }
+    .summary-info { flex: 1; }
+    .summary-label { font-size: 12px; color: var(--gray-400); }
+    .summary-value { font-size: 14px; font-weight: 700; color: var(--brown-dark); margin-top: 2px; }
+    .summary-status-ok { font-size: 18px; color: var(--green); }
+    .summary-status-skip { font-size: 18px; color: var(--amber); }
+
+    .tour-card {
+      background: linear-gradient(135deg, var(--brown-dark) 0%, var(--brown-mid) 100%);
+      border-radius: 12px; padding: 20px 24px; margin-bottom: 16px;
+      display: flex; align-items: center; gap: 16px;
+    }
+    .tour-card-text { flex: 1; }
+    .tour-card-title { font-size: 15px; font-weight: 700; color: white; margin-bottom: 4px; }
+    .tour-card-sub { font-size: 13px; color: rgba(255,255,255,0.6); line-height: 1.4; }
+    .tour-start-btn {
+      padding: 8px 18px; background: var(--gold); color: var(--brown-dark);
+      border: none; border-radius: 8px; font-size: 13px; font-weight: 700;
+      cursor: pointer; font-family: inherit; white-space: nowrap;
+    }
+
+    /* Tooltip overlay preview */
+    .tooltip-preview {
+      position: relative; border-radius: 10px; overflow: hidden;
+      border: 1px solid var(--gray-100);
+    }
+    .tooltip-overlay-example {
+      display: flex; gap: 16px; padding: 14px;
+      background: var(--gray-50); align-items: center;
+    }
+    .tooltip-bubble {
+      background: var(--brown-dark); color: white;
+      border-radius: 8px; padding: 10px 14px; font-size: 12px;
+      position: relative; max-width: 200px; line-height: 1.5;
+    }
+    .tooltip-bubble::after {
+      content: ''; position: absolute; left: -6px; top: 14px;
+      border: 6px solid transparent; border-right-color: var(--brown-dark);
+    }
+    .tooltip-bubble strong { color: var(--gold-light); }
+    .tooltip-nav {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-top: 8px;
+    }
+    .tooltip-step { font-size: 10px; color: rgba(255,255,255,0.5); }
+    .tooltip-next-btn {
+      font-size: 11px; font-weight: 600; color: var(--gold-light);
+      background: none; border: none; cursor: pointer; font-family: inherit;
+    }
+
+    /* ── NAV FOOTER ── */
+    .nav-footer {
+      position: sticky; bottom: 0;
+      background: var(--white); border-top: 1px solid var(--gray-100);
+      padding: 14px 40px; display: flex; align-items: center;
+      justify-content: space-between; gap: 12px;
+    }
+    .nav-left { display: flex; align-items: center; gap: 10px; }
+    .nav-right { display: flex; align-items: center; gap: 10px; }
+    .skip-link {
+      font-size: 13px; color: var(--gray-400); cursor: pointer;
+      background: none; border: none; font-family: inherit; font-weight: 500;
+    }
+    .skip-link:hover { color: var(--gray-600); }
+    .btn-back {
+      padding: 9px 20px; border: 1px solid var(--gray-200); border-radius: 8px;
+      background: var(--white); color: var(--gray-600); font-size: 13px;
+      font-weight: 600; cursor: pointer; font-family: inherit;
+    }
+    .btn-back:hover { background: var(--gray-50); }
+    .btn-next {
+      padding: 9px 24px; background: var(--brown-dark); color: white;
+      border: none; border-radius: 8px; font-size: 13px; font-weight: 600;
+      cursor: pointer; font-family: inherit; display: flex; align-items: center; gap: 6px;
+    }
+    .btn-next:hover { background: var(--brown-mid); }
+    .btn-finish {
+      padding: 9px 24px; background: var(--green); color: white;
+      border: none; border-radius: 8px; font-size: 13px; font-weight: 600;
+      cursor: pointer; font-family: inherit;
+    }
+
+    /* ── GSTIN STATES ── */
+    .gstin-valid   { border-color: var(--green) !important; background: var(--green-bg) !important; }
+    .gstin-invalid { border-color: var(--red)   !important; background: var(--red-bg)   !important; }
+
+    .rate-pair {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+    }
+
+    /* Scrollbar */
+    .step-sidebar::-webkit-scrollbar { width: 4px; }
+    .step-sidebar::-webkit-scrollbar-thumb { background: var(--gray-200); border-radius: 4px; }
+    .main-content::-webkit-scrollbar { width: 5px; }
+
+    /* ── SCREENS ── */
+    .wizard-screen { display: none; }
+    .wizard-screen.active { display: flex; flex-direction: column; min-height: calc(100vh - 97px); }
+  </style>
+</head>
+<body>
+
+<!-- ── DEMO BAR ── -->
+<div class="demo-bar">
+  <span class="demo-label">F-02 Wizard:</span>
+  <button class="demo-tab active"  onclick="goStep(1)">Step 1 · Cafe Profile</button>
+  <button class="demo-tab"         onclick="goStep(2)">Step 2 · GST Config</button>
+  <button class="demo-tab"         onclick="goStep(3)">Step 3 · Menu Setup</button>
+  <button class="demo-tab"         onclick="goStep(4)">Step 4 · Tables</button>
+  <button class="demo-tab"         onclick="goStep(5)">Step 5 · All Done!</button>
+  <span style="margin-left:8px; color: rgba(255,255,255,0.3);">|</span>
+  <button class="demo-tab"         onclick="goGSTIN('invalid')">GSTIN · Error</button>
+  <button class="demo-tab"         onclick="goGSTIN('valid')">GSTIN · Valid</button>
+</div>
+
+<!-- ══════════════════════════════════════
+     STEP 1 — Cafe Profile
+══════════════════════════════════════ -->
+<div id="wizard-1" class="wizard-screen active">
+
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="logo">
+        <div class="logo-icon">☕</div>
+        <span class="logo-text">Cafe<span>OSum</span></span>
+      </div>
+      <div class="topbar-divider"></div>
+      <span class="topbar-title">Cafe Setup</span>
+      <span class="topbar-step-badge">Step 1 of 5</span>
+      <div class="topbar-right">
+        <span class="autosave-pill">✓ Progress saved</span>
+        <button class="save-exit-btn">Save &amp; exit</button>
+      </div>
+    </div>
+    <div class="progress-wrap"><div class="progress-fill" style="width:20%"></div></div>
+  </div>
+
+  <div class="layout">
+    <aside class="step-sidebar">
+      <div class="sidebar-section-label">Setup Steps</div>
+
+      <div class="step-item active" onclick="goStep(1)">
+        <div class="step-badge">1</div>
+        <div class="step-info">
+          <div class="step-title">Cafe Profile</div>
+          <div class="step-sub">Name, address, logo</div>
+        </div>
+      </div>
+      <div class="step-connector"></div>
+
+      <div class="step-item" onclick="goStep(2)">
+        <div class="step-badge">2</div>
+        <div class="step-info">
+          <div class="step-title">GST &amp; Billing</div>
+          <div class="step-sub">GSTIN, tax rates</div>
+        </div>
+      </div>
+      <div class="step-connector"></div>
+
+      <div class="step-item" onclick="goStep(3)">
+        <div class="step-badge">3</div>
+        <div class="step-info">
+          <div class="step-title">Menu Items</div>
+          <div class="step-sub">Add your dishes</div>
+        </div>
+      </div>
+      <div class="step-connector"></div>
+
+      <div class="step-item" onclick="goStep(4)">
+        <div class="step-badge">4</div>
+        <div class="step-info">
+          <div class="step-title">Table Setup</div>
+          <div class="step-sub">Configure floor layout</div>
+        </div>
+      </div>
+      <div class="step-connector"></div>
+
+      <div class="step-item" onclick="goStep(5)">
+        <div class="step-badge">5</div>
+        <div class="step-info">
+          <div class="step-title">All Done!</div>
+          <div class="step-sub">Start taking orders</div>
+        </div>
+      </div>
+
+      <div style="margin-top: 28px; padding: 12px; background: var(--amber-bg); border-radius: 10px; font-size: 12px; color: var(--amber); line-height: 1.5;">
+        <strong>💡 Tip:</strong> Only Cafe Name and Mobile are required. You can skip the rest and fill them in later.
+      </div>
+    </aside>
+
+    <div style="flex:1; display:flex; flex-direction:column;">
+      <main class="main-content" style="flex:1;">
+        <div class="step-header">
+          <div class="step-heading">Tell us about your cafe</div>
+          <div class="step-subheading">This info appears on your bills and receipts. Only cafe name and mobile number are required to continue.</div>
+        </div>
+
+        <!-- Logo Upload -->
+        <div class="card">
+          <div class="card-title"><span>🏪</span> Cafe Logo <span class="opt-tag">Optional</span></div>
+          <div class="logo-upload">
+            <div class="logo-preview">☕</div>
+            <div>
+              <button class="logo-upload-btn">Upload logo</button>
+              <div class="logo-upload-hint">PNG or JPG, max 2MB. Shown on printed bills and receipts.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Basic Info -->
+        <div class="card">
+          <div class="card-title"><span>📋</span> Basic Information</div>
+          <div class="field-grid">
+            <div class="field">
+              <label>Cafe name <span class="req-star">*</span></label>
+              <div class="input-wrap">
+                <span class="input-icon">☕</span>
+                <input type="text" placeholder="e.g. Brew &amp; Bloom Cafe" value="Brew &amp; Bloom Cafe" />
+              </div>
+            </div>
+            <div class="field">
+              <label>Mobile number <span class="req-star">*</span></label>
+              <div class="input-wrap">
+                <span class="input-icon">📱</span>
+                <input type="tel" placeholder="+91 98765 43210" value="+91 98765 43210" />
+              </div>
+              <div class="field-hint">Used for account recovery and order notifications.</div>
+            </div>
+            <div class="field">
+              <label>Owner's name <span class="opt-tag">Optional</span></label>
+              <div class="input-wrap">
+                <span class="input-icon">👤</span>
+                <input type="text" placeholder="e.g. Rajesh Kumar" value="Rajesh Kumar" />
+              </div>
+            </div>
+            <div class="field">
+              <label>Cafe type <span class="opt-tag">Optional</span></label>
+              <div class="input-wrap">
+                <span class="input-icon">🏷</span>
+                <select>
+                  <option>Coffee Shop</option>
+                  <option>Bakery Cafe</option>
+                  <option>Multi-cuisine Cafe</option>
+                  <option>Tea House</option>
+                  <option>Other</option>
+                </select>
+              </div>
+            </div>
+            <div class="field field-full">
+              <label>Address <span class="opt-tag">Optional</span></label>
+              <div class="input-wrap">
+                <span class="input-icon">📍</span>
+                <input type="text" placeholder="Street address" value="12, MG Road, Indiranagar" />
+              </div>
+            </div>
+            <div class="field">
+              <label>City <span class="opt-tag">Optional</span></label>
+              <div class="input-wrap">
+                <span class="input-icon">🌆</span>
+                <input type="text" placeholder="e.g. Bengaluru" value="Bengaluru" />
+              </div>
+            </div>
+            <div class="field">
+              <label>Pincode <span class="opt-tag">Optional</span></label>
+              <div class="input-wrap">
+                <span class="input-icon">#</span>
+                <input type="text" placeholder="560001" value="560038" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cafe Hours -->
+        <div class="card">
+          <div class="card-title"><span>🕐</span> Operating Hours <span class="opt-tag">Optional</span></div>
+          <div class="field-grid">
+            <div class="field">
+              <label>Opens at</label>
+              <div class="input-wrap">
+                <span class="input-icon">🌅</span>
+                <input type="text" placeholder="e.g. 8:00 AM" value="8:00 AM" />
+              </div>
+            </div>
+            <div class="field">
+              <label>Closes at</label>
+              <div class="input-wrap">
+                <span class="input-icon">🌙</span>
+                <input type="text" placeholder="e.g. 10:00 PM" value="10:00 PM" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <div class="nav-footer">
+        <div class="nav-left">
+          <button class="skip-link" onclick="goStep(2)">Skip this step →</button>
+        </div>
+        <div class="nav-right">
+          <button class="btn-next" onclick="goStep(2)">Save &amp; Continue →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════
+     STEP 2 — GST & Billing
+══════════════════════════════════════ -->
+<div id="wizard-2" class="wizard-screen">
+
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="logo"><div class="logo-icon">☕</div><span class="logo-text">Cafe<span>OSum</span></span></div>
+      <div class="topbar-divider"></div>
+      <span class="topbar-title">Cafe Setup</span>
+      <span class="topbar-step-badge">Step 2 of 5</span>
+      <div class="topbar-right">
+        <span class="autosave-pill">✓ Progress saved</span>
+        <button class="save-exit-btn">Save &amp; exit</button>
+      </div>
+    </div>
+    <div class="progress-wrap"><div class="progress-fill" style="width:40%"></div></div>
+  </div>
+
+  <div class="layout">
+    <aside class="step-sidebar">
+      <div class="sidebar-section-label">Setup Steps</div>
+      <div class="step-item done" onclick="goStep(1)">
+        <div class="step-badge">✓</div>
+        <div class="step-info"><div class="step-title">Cafe Profile</div><div class="step-sub">Brew &amp; Bloom Cafe ✓</div></div>
+      </div>
+      <div class="step-connector"></div>
+      <div class="step-item active">
+        <div class="step-badge">2</div>
+        <div class="step-info"><div class="step-title">GST &amp; Billing</div><div class="step-sub">GSTIN, tax rates</div></div>
+      </div>
+      <div class="step-connector"></div>
+      <div class="step-item" onclick="goStep(3)">
+        <div class="step-badge">3</div>
+        <div class="step-info"><div class="step-title">Menu Items</div><div class="step-sub">Add your dishes</div></div>
+      </div>
+      <div class="step-connector"></div>
+      <div class="step-item" onclick="goStep(4)">
+        <div class="step-badge">4</div>
+        <div class="step-info"><div class="step-title">Table Setup</div><div class="step-sub">Configure floor layout</div></div>
+      </div>
+      <div class="step-connector"></div>
+      <div class="step-item" onclick="goStep(5)">
+        <div class="step-badge">5</div>
+        <div class="step-info"><div class="step-title">All Done!</div><div class="step-sub">Start taking orders</div></div>
+      </div>
+      <div style="margin-top: 28px; padding: 12px; background: var(--blue-bg); border-radius: 10px; font-size: 12px; color: var(--blue); line-height: 1.5;">
+        <strong>📋 GST tip:</strong> Under Composition Scheme (turnover &lt; ₹1.5 Cr), you charge a flat rate instead of CGST/SGST.
+      </div>
+    </aside>
+
+    <div style="flex:1; display:flex; flex-direction:column;">
+      <main class="main-content" style="flex:1;">
+        <div class="step-header">
+          <div class="step-heading">GST &amp; billing setup</div>
+          <div class="step-subheading">CafeOSum generates GST-compliant bills from day one. Enter your GSTIN if registered — this appears on every receipt.</div>
+        </div>
+
+        <div class="info-card">
+          <span class="info-card-icon">ℹ</span>
+          <div>All fields on this step are <strong>optional</strong>. If you skip GSTIN now, bills will show your cafe name without a tax number. You can add it anytime from Settings.</div>
+        </div>
+
+        <!-- GSTIN Card -->
+        <div class="card" id="gstin-card">
+          <div class="card-title"><span>🏛</span> GST Registration</div>
+
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label">I am GST registered</div>
+              <div class="toggle-sub">Turn off if you are not registered under GST</div>
+            </div>
+            <div class="toggle on" id="gst-toggle" onclick="this.classList.toggle('on')"></div>
+          </div>
+
+          <div style="margin-top: 16px;" id="gstin-fields">
+            <div class="field" style="margin-bottom: 16px;">
+              <label>GSTIN <span class="opt-tag">Optional</span></label>
+              <div class="input-wrap">
+                <span class="input-icon">🔑</span>
+                <input type="text" id="gstin-input" placeholder="e.g. 29AABCU9603R1ZP (15 characters)"
+                       maxlength="15"
+                       oninput="validateGSTIN(this)"
+                       style="text-transform:uppercase; letter-spacing: 1px;" />
+              </div>
+              <div id="gstin-msg" class="field-hint">15-character alphanumeric — e.g. 29AABCU9603R1ZP. We validate the format before saving.</div>
+            </div>
+
+            <div class="field-grid">
+              <div class="field">
+                <label>GST Registration type</label>
+                <div class="input-wrap">
+                  <span class="input-icon">📄</span>
+                  <select>
+                    <option selected>Regular Taxpayer</option>
+                    <option>Composition Scheme</option>
+                    <option>Unregistered</option>
+                  </select>
+                </div>
+              </div>
+              <div class="field">
+                <label>Business legal name <span class="opt-tag">Optional</span></label>
+                <div class="input-wrap">
+                  <span class="input-icon">🏢</span>
+                  <input type="text" placeholder="As on GST certificate" class="no-icon" style="padding-left:34px;" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tax Rates -->
+        <div class="card">
+          <div class="card-title"><span>💰</span> Default Tax Rates</div>
+          <div class="info-card" style="margin-bottom: 16px;">
+            <span class="info-card-icon">ℹ</span>
+            <div>Food items typically attract <strong>5% GST</strong> (2.5% CGST + 2.5% SGST). AC restaurants charge <strong>18% GST</strong>. Set your default here — you can override per menu item.</div>
+          </div>
+          <div class="field-grid">
+            <div class="field">
+              <label>Default CGST rate</label>
+              <div class="input-wrap">
+                <span class="input-icon">%</span>
+                <select>
+                  <option>2.5% (Food — standard)</option>
+                  <option>6%</option>
+                  <option>9% (AC restaurant)</option>
+                  <option>14%</option>
+                  <option>0% (Exempt)</option>
+                </select>
+              </div>
+            </div>
+            <div class="field">
+              <label>Default SGST rate</label>
+              <div class="input-wrap">
+                <span class="input-icon">%</span>
+                <select>
+                  <option>2.5% (auto-matched)</option>
+                  <option>6%</option>
+                  <option>9%</option>
+                  <option>14%</option>
+                  <option>0%</option>
+                </select>
+              </div>
+              <div class="field-hint">SGST always equals CGST under Indian GST rules.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Billing Preferences -->
+        <div class="card">
+          <div class="card-title"><span>🧾</span> Billing Preferences <span class="opt-tag">Optional</span></div>
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label">Print bill footer note</div>
+              <div class="toggle-sub">e.g. "Thank you for visiting! Come again ☕"</div>
+            </div>
+            <div class="toggle on"></div>
+          </div>
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label">Show GSTIN on bills</div>
+              <div class="toggle-sub">Required if GST registered</div>
+            </div>
+            <div class="toggle on"></div>
+          </div>
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label">Auto-send WhatsApp receipt</div>
+              <div class="toggle-sub">Send digital receipt to customer after payment</div>
+            </div>
+            <div class="toggle"></div>
+          </div>
+        </div>
+      </main>
+
+      <div class="nav-footer">
+        <div class="nav-left">
+          <button class="btn-back" onclick="goStep(1)">← Back</button>
+          <button class="skip-link" onclick="goStep(3)">Skip GST for now</button>
+        </div>
+        <div class="nav-right">
+          <button class="btn-next" onclick="goStep(3)">Save &amp; Continue →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════
+     STEP 3 — Menu Setup
+══════════════════════════════════════ -->
+<div id="wizard-3" class="wizard-screen">
+
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="logo"><div class="logo-icon">☕</div><span class="logo-text">Cafe<span>OSum</span></span></div>
+      <div class="topbar-divider"></div>
+      <span class="topbar-title">Cafe Setup</span>
+      <span class="topbar-step-badge">Step 3 of 5</span>
+      <div class="topbar-right">
+        <span class="autosave-pill">✓ Progress saved</span>
+        <button class="save-exit-btn">Save &amp; exit</button>
+      </div>
+    </div>
+    <div class="progress-wrap"><div class="progress-fill" style="width:60%"></div></div>
+  </div>
+
+  <div class="layout">
+    <aside class="step-sidebar">
+      <div class="sidebar-section-label">Setup Steps</div>
+      <div class="step-item done" onclick="goStep(1)"><div class="step-badge">✓</div><div class="step-info"><div class="step-title">Cafe Profile</div><div class="step-sub">Brew &amp; Bloom ✓</div></div></div>
+      <div class="step-connector"></div>
+      <div class="step-item done" onclick="goStep(2)"><div class="step-badge">✓</div><div class="step-info"><div class="step-title">GST &amp; Billing</div><div class="step-sub">GSTIN configured ✓</div></div></div>
+      <div class="step-connector"></div>
+      <div class="step-item active"><div class="step-badge">3</div><div class="step-info"><div class="step-title">Menu Items</div><div class="step-sub">Add your dishes</div></div></div>
+      <div class="step-connector"></div>
+      <div class="step-item" onclick="goStep(4)"><div class="step-badge">4</div><div class="step-info"><div class="step-title">Table Setup</div><div class="step-sub">Configure floor layout</div></div></div>
+      <div class="step-connector"></div>
+      <div class="step-item" onclick="goStep(5)"><div class="step-badge">5</div><div class="step-info"><div class="step-title">All Done!</div><div class="step-sub">Start taking orders</div></div></div>
+      <div style="margin-top: 28px; padding: 12px; background: var(--green-bg); border-radius: 10px; font-size: 12px; color: var(--green); line-height: 1.5;">
+        <strong>✓ 3 demo items pre-loaded.</strong> Edit or delete them — they're just examples to help you get started.
+      </div>
+    </aside>
+
+    <div style="flex:1; display:flex; flex-direction:column;">
+      <main class="main-content" style="flex:1;">
+        <div class="step-header">
+          <div class="step-heading">Build your menu</div>
+          <div class="step-subheading">Add the items your cafe serves. We've pre-loaded 3 sample items — edit, delete, or add your own. You can always update this from the Menu page.</div>
+        </div>
+
+        <!-- Category filter -->
+        <div class="card">
+          <div class="card-title"><span>🏷</span> Filter by category</div>
+          <div class="chip-group">
+            <button class="chip selected">All</button>
+            <button class="chip">☕ Coffee</button>
+            <button class="chip">🍵 Tea</button>
+            <button class="chip">🥗 Food</button>
+            <button class="chip">🧁 Bakery</button>
+            <button class="chip">🧃 Beverages</button>
+          </div>
+        </div>
+
+        <!-- Menu items -->
+        <div class="card">
+          <div style="display:flex; align-items:center; margin-bottom:16px;">
+            <div class="card-title" style="margin:0;"><span>📋</span> Menu Items</div>
+            <span class="item-count-pill" id="item-count">5 items</span>
+          </div>
+
+          <!-- Header row -->
+          <div class="menu-item-row header">
+            <div class="menu-col-label">Item Name</div>
+            <div class="menu-col-label">Price (₹)</div>
+            <div class="menu-col-label">Category</div>
+            <div class="menu-col-label">GST</div>
+            <div></div>
+          </div>
+
+          <!-- Demo item 1 -->
+          <div class="menu-item-row demo-row" id="row-1">
+            <div>
+              <div class="input-wrap">
+                <span class="input-icon">📝</span>
+                <input type="text" value="Masala Chai" />
+              </div>
+              <div class="demo-tag" style="margin-top:4px; display:inline-block;">Demo</div>
+            </div>
+            <div class="input-wrap">
+              <span class="input-icon">₹</span>
+              <input type="number" value="60" class="no-icon" style="padding-left:28px;" />
+            </div>
+            <div class="input-wrap">
+              <select style="padding-left:8px;">
+                <option selected>🍵 Tea</option>
+                <option>☕ Coffee</option>
+                <option>🥗 Food</option>
+                <option>🧁 Bakery</option>
+                <option>🧃 Beverages</option>
+              </select>
+            </div>
+            <div class="input-wrap">
+              <select style="padding-left:8px;">
+                <option selected>5%</option>
+                <option>0%</option>
+                <option>12%</option>
+                <option>18%</option>
+              </select>
+            </div>
+            <button class="del-btn" onclick="deleteRow('row-1')">✕</button>
+          </div>
+
+          <!-- Demo item 2 -->
+          <div class="menu-item-row demo-row" id="row-2">
+            <div>
+              <div class="input-wrap">
+                <span class="input-icon">📝</span>
+                <input type="text" value="Filter Coffee" />
+              </div>
+              <div class="demo-tag" style="margin-top:4px; display:inline-block;">Demo</div>
+            </div>
+            <div class="input-wrap">
+              <span class="input-icon">₹</span>
+              <input type="number" value="50" class="no-icon" style="padding-left:28px;" />
+            </div>
+            <div class="input-wrap">
+              <select style="padding-left:8px;">
+                <option selected>☕ Coffee</option>
+                <option>🍵 Tea</option>
+                <option>🥗 Food</option>
+                <option>🧁 Bakery</option>
+                <option>🧃 Beverages</option>
+              </select>
+            </div>
+            <div class="input-wrap">
+              <select style="padding-left:8px;">
+                <option selected>5%</option>
+                <option>0%</option>
+                <option>12%</option>
+                <option>18%</option>
+              </select>
+            </div>
+            <button class="del-btn" onclick="deleteRow('row-2')">✕</button>
+          </div>
+
+          <!-- Demo item 3 -->
+          <div class="menu-item-row demo-row" id="row-3">
+            <div>
+              <div class="input-wrap">
+                <span class="input-icon">📝</span>
+                <input type="text" value="Vada Pav" />
+              </div>
+              <div class="demo-tag" style="margin-top:4px; display:inline-block;">Demo</div>
+            </div>
+            <div class="input-wrap">
+              <span class="input-icon">₹</span>
+              <input type="number" value="40" class="no-icon" style="padding-left:28px;" />
+            </div>
+            <div class="input-wrap">
+              <select style="padding-left:8px;">
+                <option selected>🥗 Food</option>
+                <option>☕ Coffee</option>
+                <option>🍵 Tea</option>
+                <option>🧁 Bakery</option>
+                <option>🧃 Beverages</option>
+              </select>
+            </div>
+            <div class="input-wrap">
+              <select style="padding-left:8px;">
+                <option selected>5%</option>
+                <option>0%</option>
+                <option>12%</option>
+                <option>18%</option>
+              </select>
+            </div>
+            <button class="del-btn" onclick="deleteRow('row-3')">✕</button>
+          </div>
+
+          <!-- User-added item 4 -->
+          <div class="menu-item-row" id="row-4">
+            <div class="input-wrap">
+              <span class="input-icon">📝</span>
+              <input type="text" value="Cold Brew Latte" />
+            </div>
+            <div class="input-wrap">
+              <span class="input-icon">₹</span>
+              <input type="number" value="190" class="no-icon" style="padding-left:28px;" />
+            </div>
+            <div class="input-wrap">
+              <select style="padding-left:8px;">
+                <option selected>☕ Coffee</option>
+                <option>🍵 Tea</option>
+                <option>🥗 Food</option>
+                <option>🧁 Bakery</option>
+                <option>🧃 Beverages</option>
+              </select>
+            </div>
+            <div class="input-wrap">
+              <select style="padding-left:8px;">
+                <option selected>5%</option>
+                <option>0%</option>
+                <option>12%</option>
+                <option>18%</option>
+              </select>
+            </div>
+            <button class="del-btn" onclick="deleteRow('row-4')">✕</button>
+          </div>
+
+          <!-- User-added item 5 -->
+          <div class="menu-item-row" id="row-5">
+            <div class="input-wrap">
+              <span class="input-icon">📝</span>
+              <input type="text" value="Blueberry Muffin" />
+            </div>
+            <div class="input-wrap">
+              <span class="input-icon">₹</span>
+              <input type="number" value="120" class="no-icon" style="padding-left:28px;" />
+            </div>
+            <div class="input-wrap">
+              <select style="padding-left:8px;">
+                <option selected>🧁 Bakery</option>
+                <option>☕ Coffee</option>
+                <option>🍵 Tea</option>
+                <option>🥗 Food</option>
+                <option>🧃 Beverages</option>
+              </select>
+            </div>
+            <div class="input-wrap">
+              <select style="padding-left:8px;">
+                <option selected>5%</option>
+                <option>0%</option>
+                <option>12%</option>
+                <option>18%</option>
+              </select>
+            </div>
+            <button class="del-btn" onclick="deleteRow('row-5')">✕</button>
+          </div>
+
+          <!-- Add row -->
+          <div class="add-item-row">
+            <button class="add-item-btn">＋ Add item</button>
+            <div class="csv-hint">
+              <span class="csv-tag">Sprint 2</span>
+              Bulk import via CSV — coming soon
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <div class="nav-footer">
+        <div class="nav-left">
+          <button class="btn-back" onclick="goStep(2)">← Back</button>
+          <button class="skip-link" onclick="goStep(4)">Skip — add menu later</button>
+        </div>
+        <div class="nav-right">
+          <button class="btn-next" onclick="goStep(4)">Save &amp; Continue →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════
+     STEP 4 — Table Setup
+══════════════════════════════════════ -->
+<div id="wizard-4" class="wizard-screen">
+
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="logo"><div class="logo-icon">☕</div><span class="logo-text">Cafe<span>OSum</span></span></div>
+      <div class="topbar-divider"></div>
+      <span class="topbar-title">Cafe Setup</span>
+      <span class="topbar-step-badge">Step 4 of 5</span>
+      <div class="topbar-right">
+        <span class="autosave-pill">✓ Progress saved</span>
+        <button class="save-exit-btn">Save &amp; exit</button>
+      </div>
+    </div>
+    <div class="progress-wrap"><div class="progress-fill" style="width:80%"></div></div>
+  </div>
+
+  <div class="layout">
+    <aside class="step-sidebar">
+      <div class="sidebar-section-label">Setup Steps</div>
+      <div class="step-item done" onclick="goStep(1)"><div class="step-badge">✓</div><div class="step-info"><div class="step-title">Cafe Profile</div><div class="step-sub">Brew &amp; Bloom ✓</div></div></div>
+      <div class="step-connector"></div>
+      <div class="step-item done" onclick="goStep(2)"><div class="step-badge">✓</div><div class="step-info"><div class="step-title">GST &amp; Billing</div><div class="step-sub">GSTIN configured ✓</div></div></div>
+      <div class="step-connector"></div>
+      <div class="step-item done" onclick="goStep(3)"><div class="step-badge">✓</div><div class="step-info"><div class="step-title">Menu Items</div><div class="step-sub">5 items added ✓</div></div></div>
+      <div class="step-connector"></div>
+      <div class="step-item active"><div class="step-badge">4</div><div class="step-info"><div class="step-title">Table Setup</div><div class="step-sub">Configure floor layout</div></div></div>
+      <div class="step-connector"></div>
+      <div class="step-item" onclick="goStep(5)"><div class="step-badge">5</div><div class="step-info"><div class="step-title">All Done!</div><div class="step-sub">Start taking orders</div></div></div>
+      <div style="margin-top: 28px; padding: 12px; background: var(--amber-bg); border-radius: 10px; font-size: 12px; color: var(--amber); line-height: 1.5;">
+        <strong>🪑 Tip:</strong> Use names like "T1", "Window Seat", or "Outdoor 1" so staff recognise tables instantly.
+      </div>
+    </aside>
+
+    <div style="flex:1; display:flex; flex-direction:column;">
+      <main class="main-content" style="flex:1;">
+        <div class="step-header">
+          <div class="step-heading">Set up your tables</div>
+          <div class="step-subheading">Add the tables in your cafe. Staff will see these on the occupancy grid when taking orders. You can add up to 50 tables.</div>
+        </div>
+
+        <!-- Table list input -->
+        <div class="card">
+          <div class="card-title"><span>📋</span> Add tables <span class="opt-tag">Optional</span></div>
+
+          <div class="table-form-row header">
+            <div class="menu-col-label">Table name / number</div>
+            <div class="menu-col-label">Seats</div>
+            <div></div>
+          </div>
+
+          <div class="table-form-row">
+            <div class="input-wrap">
+              <span class="input-icon">🪑</span>
+              <input type="text" value="Table 1" />
+            </div>
+            <div class="input-wrap">
+              <span class="input-icon">#</span>
+              <input type="number" value="4" class="no-icon" style="padding-left:28px;" />
+            </div>
+            <button class="del-btn">✕</button>
+          </div>
+          <div class="table-form-row">
+            <div class="input-wrap">
+              <span class="input-icon">🪑</span>
+              <input type="text" value="Table 2" />
+            </div>
+            <div class="input-wrap">
+              <span class="input-icon">#</span>
+              <input type="number" value="4" class="no-icon" style="padding-left:28px;" />
+            </div>
+            <button class="del-btn">✕</button>
+          </div>
+          <div class="table-form-row">
+            <div class="input-wrap">
+              <span class="input-icon">🪑</span>
+              <input type="text" value="Window Seat" />
+            </div>
+            <div class="input-wrap">
+              <span class="input-icon">#</span>
+              <input type="number" value="2" class="no-icon" style="padding-left:28px;" />
+            </div>
+            <button class="del-btn">✕</button>
+          </div>
+          <div class="table-form-row">
+            <div class="input-wrap">
+              <span class="input-icon">🪑</span>
+              <input type="text" value="Corner Booth" />
+            </div>
+            <div class="input-wrap">
+              <span class="input-icon">#</span>
+              <input type="number" value="6" class="no-icon" style="padding-left:28px;" />
+            </div>
+            <button class="del-btn">✕</button>
+          </div>
+          <div class="table-form-row">
+            <div class="input-wrap">
+              <span class="input-icon">🪑</span>
+              <input type="text" value="Outdoor 1" />
+            </div>
+            <div class="input-wrap">
+              <span class="input-icon">#</span>
+              <input type="number" value="4" class="no-icon" style="padding-left:28px;" />
+            </div>
+            <button class="del-btn">✕</button>
+          </div>
+
+          <div class="add-item-row">
+            <button class="add-item-btn">＋ Add table</button>
+            <div style="margin-left:auto; font-size:12px; color:var(--gray-400);">5 of 50 tables added</div>
+          </div>
+        </div>
+
+        <!-- Live preview -->
+        <div class="card">
+          <div class="card-title"><span>🗺</span> Floor plan preview</div>
+          <div style="font-size:12px; color:var(--gray-400); margin-bottom:12px;">This is how staff will see your tables on the occupancy grid.</div>
+          <div style="display:flex; gap:16px; margin-bottom:14px; flex-wrap:wrap;">
+            <div style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--gray-600);">
+              <div style="width:12px;height:12px;border-radius:3px;background:var(--green);"></div> Free
+            </div>
+            <div style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--gray-600);">
+              <div style="width:12px;height:12px;border-radius:3px;background:var(--amber);"></div> Occupied
+            </div>
+            <div style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--gray-600);">
+              <div style="width:12px;height:12px;border-radius:3px;background:var(--red);"></div> Bill Pending
+            </div>
+          </div>
+          <div class="table-grid">
+            <div class="table-tile">
+              <div class="table-icon">🪑</div>
+              <div class="table-name-label">Table 1</div>
+              <div class="table-seats-label">4 seats</div>
+            </div>
+            <div class="table-tile">
+              <div class="table-icon">🪑</div>
+              <div class="table-name-label">Table 2</div>
+              <div class="table-seats-label">4 seats</div>
+            </div>
+            <div class="table-tile">
+              <div class="table-icon">🪑</div>
+              <div class="table-name-label">Window Seat</div>
+              <div class="table-seats-label">2 seats</div>
+            </div>
+            <div class="table-tile">
+              <div class="table-icon">🪑</div>
+              <div class="table-name-label">Corner Booth</div>
+              <div class="table-seats-label">6 seats</div>
+            </div>
+            <div class="table-tile">
+              <div class="table-icon">🪑</div>
+              <div class="table-name-label">Outdoor 1</div>
+              <div class="table-seats-label">4 seats</div>
+            </div>
+            <div class="table-add-tile" style="">
+              <div>＋</div>
+              <span>Add</span>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <div class="nav-footer">
+        <div class="nav-left">
+          <button class="btn-back" onclick="goStep(3)">← Back</button>
+          <button class="skip-link" onclick="goStep(5)">Skip — configure tables later</button>
+        </div>
+        <div class="nav-right">
+          <button class="btn-next" onclick="goStep(5)">Save &amp; Continue →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════
+     STEP 5 — All Done!
+══════════════════════════════════════ -->
+<div id="wizard-5" class="wizard-screen">
+
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="logo"><div class="logo-icon">☕</div><span class="logo-text">Cafe<span>OSum</span></span></div>
+      <div class="topbar-divider"></div>
+      <span class="topbar-title">Cafe Setup</span>
+      <span class="topbar-step-badge">Step 5 of 5</span>
+      <div class="topbar-right">
+        <span class="autosave-pill">✓ All saved</span>
+      </div>
+    </div>
+    <div class="progress-wrap"><div class="progress-fill" style="width:100%; background:var(--green);"></div></div>
+  </div>
+
+  <div class="layout">
+    <aside class="step-sidebar">
+      <div class="sidebar-section-label">Setup Steps</div>
+      <div class="step-item done" onclick="goStep(1)"><div class="step-badge">✓</div><div class="step-info"><div class="step-title">Cafe Profile</div><div class="step-sub">Brew &amp; Bloom ✓</div></div></div>
+      <div class="step-connector"></div>
+      <div class="step-item done" onclick="goStep(2)"><div class="step-badge">✓</div><div class="step-info"><div class="step-title">GST &amp; Billing</div><div class="step-sub">GSTIN configured ✓</div></div></div>
+      <div class="step-connector"></div>
+      <div class="step-item done" onclick="goStep(3)"><div class="step-badge">✓</div><div class="step-info"><div class="step-title">Menu Items</div><div class="step-sub">5 items added ✓</div></div></div>
+      <div class="step-connector"></div>
+      <div class="step-item done" onclick="goStep(4)"><div class="step-badge">✓</div><div class="step-info"><div class="step-title">Table Setup</div><div class="step-sub">5 tables added ✓</div></div></div>
+      <div class="step-connector"></div>
+      <div class="step-item active"><div class="step-badge">✓</div><div class="step-info"><div class="step-title">All Done!</div><div class="step-sub">Ready to go live</div></div></div>
+    </aside>
+
+    <div style="flex:1; display:flex; flex-direction:column;">
+      <main class="main-content" style="flex:1;">
+
+        <!-- Completion header -->
+        <div class="completion-header">
+          <div class="completion-icon">🎉</div>
+          <div class="completion-title">You're all set, Rajesh!</div>
+          <div class="completion-sub">Brew &amp; Bloom Cafe is ready to go live.<br>Here's a summary of what you've configured.</div>
+        </div>
+
+        <!-- Summary -->
+        <div class="summary-grid">
+          <div class="summary-tile">
+            <span class="summary-icon">🏪</span>
+            <div class="summary-info">
+              <div class="summary-label">Cafe Profile</div>
+              <div class="summary-value">Brew &amp; Bloom Cafe</div>
+            </div>
+            <span class="summary-status-ok">✓</span>
+          </div>
+          <div class="summary-tile">
+            <span class="summary-icon">🏛</span>
+            <div class="summary-info">
+              <div class="summary-label">GST Registration</div>
+              <div class="summary-value">29AABCU9603R1ZP</div>
+            </div>
+            <span class="summary-status-ok">✓</span>
+          </div>
+          <div class="summary-tile">
+            <span class="summary-icon">📋</span>
+            <div class="summary-info">
+              <div class="summary-label">Menu Items</div>
+              <div class="summary-value">5 items added</div>
+            </div>
+            <span class="summary-status-ok">✓</span>
+          </div>
+          <div class="summary-tile">
+            <span class="summary-icon">🪑</span>
+            <div class="summary-info">
+              <div class="summary-label">Tables</div>
+              <div class="summary-value">5 tables configured</div>
+            </div>
+            <span class="summary-status-ok">✓</span>
+          </div>
+        </div>
+
+        <!-- Tooltip tour promo (AC-02.6) -->
+        <div class="tour-card">
+          <div style="font-size: 36px;">🗺</div>
+          <div class="tour-card-text">
+            <div class="tour-card-title">Take a 2-minute guided tour</div>
+            <div class="tour-card-sub">We'll show you how to take your first order, generate a GST bill, and track your inventory — step by step.</div>
+          </div>
+          <button class="tour-start-btn" onclick="showTourPreview()">Start Tour →</button>
+        </div>
+
+        <!-- Tooltip preview demo (AC-02.6) -->
+        <div class="card" id="tour-preview" style="display:none;">
+          <div class="card-title"><span>💡</span> Guided tour preview — how tooltips look</div>
+          <div class="tooltip-overlay-example">
+            <!-- Mock dashboard nav items -->
+            <div style="display:flex; flex-direction:column; gap:6px; min-width:120px;">
+              <div style="background:var(--cream); border-radius:8px; padding:8px 12px; font-size:13px; font-weight:600; color:var(--brown-dark); border:2px solid var(--gold);">⊞ Dashboard</div>
+              <div style="padding:8px 12px; font-size:13px; color:var(--gray-400);">🧾 Billing / POS</div>
+              <div style="padding:8px 12px; font-size:13px; color:var(--gray-400);">📋 Orders</div>
+              <div style="padding:8px 12px; font-size:13px; color:var(--gray-400);">📦 Inventory</div>
+            </div>
+            <div class="tooltip-bubble">
+              <strong>This is your Dashboard</strong><br>
+              Get a real-time overview of today's revenue, live orders, and stock alerts — all in one place.
+              <div class="tooltip-nav">
+                <span class="tooltip-step">1 of 6</span>
+                <button class="tooltip-next-btn">Next →</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick actions -->
+        <div class="card">
+          <div class="card-title"><span>⚡</span> What do you want to do first?</div>
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            <div style="display:flex; align-items:center; gap:14px; padding:14px; border:1px solid var(--gray-100); border-radius:10px; cursor:pointer; transition:background 0.15s;" onmouseover="this.style.background='var(--gray-50)'" onmouseout="this.style.background='white'">
+              <span style="font-size:24px;">🧾</span>
+              <div style="flex:1;">
+                <div style="font-size:13px; font-weight:600; color:var(--brown-dark);">Take my first order</div>
+                <div style="font-size:12px; color:var(--gray-400); margin-top:2px;">Open a table and start billing</div>
+              </div>
+              <span style="color:var(--gray-400);">→</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:14px; padding:14px; border:1px solid var(--gray-100); border-radius:10px; cursor:pointer; transition:background 0.15s;" onmouseover="this.style.background='var(--gray-50)'" onmouseout="this.style.background='white'">
+              <span style="font-size:24px;">📋</span>
+              <div style="flex:1;">
+                <div style="font-size:13px; font-weight:600; color:var(--brown-dark);">Add more menu items</div>
+                <div style="font-size:12px; color:var(--gray-400); margin-top:2px;">Build out my full menu</div>
+              </div>
+              <span style="color:var(--gray-400);">→</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:14px; padding:14px; border:1px solid var(--gray-100); border-radius:10px; cursor:pointer; transition:background 0.15s;" onmouseover="this.style.background='var(--gray-50)'" onmouseout="this.style.background='white'">
+              <span style="font-size:24px;">📦</span>
+              <div style="flex:1;">
+                <div style="font-size:13px; font-weight:600; color:var(--brown-dark);">Set up inventory tracking</div>
+                <div style="font-size:12px; color:var(--gray-400); margin-top:2px;">Map ingredients to menu items</div>
+              </div>
+              <span style="color:var(--gray-400);">→</span>
+            </div>
+          </div>
+        </div>
+
+      </main>
+
+      <div class="nav-footer">
+        <div class="nav-left">
+          <button class="btn-back" onclick="goStep(4)">← Back</button>
+        </div>
+        <div class="nav-right">
+          <button class="btn-finish">Go to Dashboard →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<script>
+  const stepProgress = { 1: 20, 2: 40, 3: 60, 4: 80, 5: 100 };
+
+  function goStep(n) {
+    document.querySelectorAll('.wizard-screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('wizard-' + n).classList.add('active');
+    document.querySelectorAll('.demo-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.demo-tab')[n - 1].classList.add('active');
+    window.scrollTo(0, 0);
+  }
+
+  /* GSTIN validation (AC-02.4) */
+  function validateGSTIN(input) {
+    const val = input.value.toUpperCase().trim();
+    const msg = document.getElementById('gstin-msg');
+    const pattern = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+    input.value = val;
+
+    if (val.length === 0) {
+      input.className = '';
+      msg.className = 'field-hint';
+      msg.textContent = '15-character alphanumeric — e.g. 29AABCU9603R1ZP. We validate the format before saving.';
+    } else if (val.length < 15) {
+      input.className = '';
+      msg.className = 'field-hint';
+      msg.textContent = `${val.length} / 15 characters entered…`;
+    } else if (pattern.test(val)) {
+      input.className = 'valid-field';
+      msg.className = 'field-ok';
+      msg.textContent = '✓ Valid GSTIN format';
+    } else {
+      input.className = 'error-field';
+      msg.className = 'field-error';
+      msg.textContent = '✕ Invalid GSTIN. Format must be: 2 digits + 5 letters + 4 digits + 1 letter + 1 char + Z + 1 char (e.g. 29AABCU9603R1ZP)';
+    }
+  }
+
+  /* Demo tabs for GSTIN states — jump to step 2 + set input */
+  function goGSTIN(state) {
+    goStep(2);
+    const input = document.getElementById('gstin-input');
+    setTimeout(() => {
+      if (state === 'valid') {
+        input.value = '29AABCU9603R1ZP';
+        validateGSTIN(input);
+      } else {
+        input.value = 'INVALID123';
+        validateGSTIN(input);
+      }
+    }, 50);
+  }
+
+  function deleteRow(id) {
+    const row = document.getElementById(id);
+    if (row) {
+      row.style.opacity = '0';
+      row.style.transition = 'opacity 0.2s';
+      setTimeout(() => row.remove(), 200);
+    }
+  }
+
+  function showTourPreview() {
+    const tp = document.getElementById('tour-preview');
+    tp.style.display = 'block';
+    tp.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+</script>
+
+</body>
+</html>

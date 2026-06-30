@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CafeOSum — Audit Log (F-09)</title>
+  <style>
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+    :root {
+      --brown-dark:#3B1F0E; --brown-mid:#7C4A1E; --gold:#D4A017; --gold-light:#F0C040;
+      --cream:#FDF8F2; --white:#FFFFFF; --gray-50:#F9F5F0; --gray-100:#F0EBE3;
+      --gray-200:#DDD5C8; --gray-400:#9E8E7E; --gray-600:#6B5B4E;
+      --green:#2E8B57; --green-bg:#E8F5EE; --green-border:#86EFAC;
+      --amber:#D97706; --amber-bg:#FEF3C7; --amber-border:#FDE68A;
+      --red:#DC2626; --red-bg:#FEE2E2; --red-border:#FCA5A5;
+      --blue:#2563EB; --blue-bg:#EFF6FF; --blue-border:#BFDBFE;
+      --purple:#7C3AED; --purple-bg:#F3E8FF;
+      --teal:#059669; --teal-bg:#ECFDF5;
+      --orange:#EA580C; --orange-bg:#FFF7ED;
+      --indigo:#4F46E5; --indigo-bg:#EEF2FF;
+      --sidebar-w:240px; --header-h:56px;
+    }
+    body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--gray-50); color:var(--brown-dark); padding-top:36px; height:100vh; overflow:hidden; }
+
+    /* DEMO BAR */
+    .demo-bar { position:fixed; top:0; left:0; right:0; z-index:300; background:var(--brown-dark); padding:6px 16px; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+    .demo-label { font-size:11px; font-weight:700; color:var(--gold-light); margin-right:4px; white-space:nowrap; }
+    .demo-tab { padding:3px 11px; border-radius:20px; border:1px solid rgba(255,255,255,0.2); color:rgba(255,255,255,0.6); cursor:pointer; font-size:11px; font-weight:500; font-family:inherit; background:transparent; transition:all 0.15s; white-space:nowrap; }
+    .demo-tab:hover { background:rgba(255,255,255,0.1); color:white; }
+    .demo-tab.active { background:var(--gold); color:var(--brown-dark); border-color:var(--gold); font-weight:700; }
+
+    /* SIDEBAR */
+    .sidebar { width:var(--sidebar-w); background:var(--white); border-right:1px solid var(--gray-100); position:fixed; top:36px; left:0; bottom:0; display:flex; flex-direction:column; z-index:200; }
+    .sidebar-logo { padding:16px 20px; border-bottom:1px solid var(--gray-100); display:flex; align-items:center; gap:10px; }
+    .logo-icon { width:34px; height:34px; background:var(--brown-dark); border-radius:9px; display:flex; align-items:center; justify-content:center; color:var(--gold-light); font-size:17px; }
+    .logo-text { font-size:16px; font-weight:700; color:var(--brown-dark); }
+    .logo-text span { color:var(--gold); }
+    nav { flex:1; padding:14px 12px; display:flex; flex-direction:column; gap:2px; overflow-y:auto; }
+    .nav-label { font-size:10px; font-weight:600; color:var(--gray-400); letter-spacing:0.8px; text-transform:uppercase; padding:10px 8px 4px; }
+    .nav-item { display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:500; color:var(--gray-600); transition:background 0.15s; }
+    .nav-item:hover { background:var(--gray-50); color:var(--brown-dark); }
+    .nav-item.active { background:var(--cream); color:var(--brown-dark); font-weight:600; }
+    .nav-icon { font-size:15px; width:20px; text-align:center; }
+    .sidebar-footer { padding:12px; border-top:1px solid var(--gray-100); }
+    .logout-btn { display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:500; color:var(--red); background:var(--red-bg); }
+
+    /* MAIN */
+    .main-wrapper { margin-left:var(--sidebar-w); height:calc(100vh - 36px); display:flex; flex-direction:column; overflow:hidden; }
+    .topbar { height:var(--header-h); background:var(--white); border-bottom:1px solid var(--gray-100); display:flex; align-items:center; padding:0 18px; gap:10px; flex-shrink:0; }
+    .topbar-title { font-size:18px; font-weight:700; color:var(--brown-dark); }
+    .spacer { flex:1; }
+    .topbar-btn { padding:7px 14px; border-radius:8px; border:none; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; display:flex; align-items:center; gap:6px; }
+    .topbar-btn.secondary { background:var(--gray-50); color:var(--brown-dark); border:1px solid var(--gray-200); }
+    .user-chip { display:flex; align-items:center; gap:8px; padding:4px 10px 4px 4px; border-radius:20px; background:var(--gray-50); border:1px solid var(--gray-200); }
+    .user-avatar { width:26px; height:26px; border-radius:50%; background:var(--brown-mid); color:white; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:600; }
+    .user-name { font-size:12px; font-weight:600; color:var(--brown-dark); }
+    .content-area { flex:1; overflow-y:auto; padding:20px 24px; }
+    .view { display:none; }
+    .view.active { display:block; }
+
+    /* SECTION HEADER */
+    .section-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:14px; }
+    .section-title { font-size:15px; font-weight:700; color:var(--brown-dark); }
+    .section-sub { font-size:12px; color:var(--gray-400); margin-top:3px; }
+
+    /* FILTER BAR */
+    .filter-bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px; background:var(--white); border:1px solid var(--gray-100); border-radius:10px; padding:10px 14px; }
+    .filter-label { font-size:12px; font-weight:600; color:var(--gray-600); white-space:nowrap; }
+    .filter-select { padding:6px 10px; border:1.5px solid var(--gray-200); border-radius:7px; font-size:12px; color:var(--brown-dark); background:var(--white); outline:none; cursor:pointer; font-family:inherit; }
+    .filter-divider { width:1px; height:20px; background:var(--gray-200); }
+    .filter-chip { display:inline-flex; align-items:center; gap:4px; padding:4px 10px; background:var(--brown-dark); color:white; border-radius:20px; font-size:11px; font-weight:600; }
+    .chip-x { cursor:pointer; opacity:0.7; margin-left:2px; }
+    .filter-chip-amber { background:var(--amber); color:white; }
+
+    /* INFO / ALERT BARS */
+    .info-bar { display:flex; align-items:center; gap:10px; padding:9px 14px; background:var(--blue-bg); border:1px solid var(--blue-border); border-radius:8px; font-size:12px; color:var(--blue); margin-bottom:14px; flex-wrap:wrap; line-height:1.6; }
+    .info-tag { padding:2px 8px; border-radius:20px; font-size:11px; font-weight:700; background:var(--blue); color:white; white-space:nowrap; }
+    .alert-banner { display:flex; align-items:flex-start; gap:10px; padding:12px 16px; background:var(--red-bg); border:1.5px solid var(--red-border); border-radius:10px; margin-bottom:14px; }
+    .alert-icon { font-size:20px; flex-shrink:0; }
+    .alert-title { font-size:13px; font-weight:700; color:var(--red); margin-bottom:4px; }
+    .alert-sub { font-size:12px; color:var(--gray-600); line-height:1.6; }
+    .immutable { display:flex; align-items:center; gap:8px; padding:10px 14px; background:var(--blue-bg); border:1px solid var(--blue-border); border-radius:8px; font-size:12px; color:var(--blue); margin-bottom:14px; font-weight:600; }
+
+    /* EVENT TABLE */
+    .tbl-wrap { background:var(--white); border:1px solid var(--gray-100); border-radius:12px; overflow:hidden; }
+    .evt-tbl { width:100%; border-collapse:collapse; }
+    .evt-tbl th { text-align:left; padding:9px 12px; background:var(--gray-50); color:var(--gray-400); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; border-bottom:1px solid var(--gray-100); white-space:nowrap; }
+    .evt-tbl td { padding:10px 12px; border-bottom:1px solid var(--gray-100); font-size:12px; vertical-align:middle; }
+    .evt-tbl tr:last-child td { border-bottom:none; }
+    .evt-tbl tr:hover td { background:var(--gray-50); cursor:pointer; }
+
+    /* CATEGORY BADGES */
+    .cat { display:inline-flex; align-items:center; padding:2px 8px; border-radius:20px; font-size:10px; font-weight:700; white-space:nowrap; }
+    .cat-auth      { background:var(--blue-bg); color:var(--blue); }
+    .cat-billing   { background:var(--amber-bg); color:var(--amber); }
+    .cat-orders    { background:var(--green-bg); color:var(--green); }
+    .cat-setup     { background:var(--purple-bg); color:var(--purple); }
+    .cat-inventory { background:var(--teal-bg); color:var(--teal); }
+    .cat-staff     { background:var(--orange-bg); color:var(--orange); }
+    .cat-analytics { background:var(--indigo-bg); color:var(--indigo); }
+
+    /* STATUS & MISC */
+    .status-ok    { color:var(--green); font-size:14px; }
+    .status-warn  { color:var(--amber); font-size:14px; }
+    .status-error { color:var(--red); font-size:14px; }
+    .mono { font-family:monospace; }
+    .evt-id   { font-family:monospace; font-size:11px; color:var(--gray-400); }
+    .evt-type { font-family:monospace; font-size:11px; font-weight:700; color:var(--brown-dark); }
+    .ip-tag   { font-family:monospace; font-size:11px; color:var(--gray-600); background:var(--gray-100); padding:2px 6px; border-radius:4px; white-space:nowrap; }
+    .ip-sus   { color:var(--red) !important; background:var(--red-bg) !important; }
+
+    /* PAGINATION */
+    .pagination { display:flex; align-items:center; gap:6px; margin-top:12px; }
+    .pag-btn { padding:5px 11px; border:1px solid var(--gray-200); border-radius:6px; font-size:12px; cursor:pointer; background:var(--white); font-family:inherit; color:var(--gray-600); }
+    .pag-btn.active { background:var(--brown-dark); color:white; border-color:var(--brown-dark); }
+    .pag-info { font-size:12px; color:var(--gray-400); margin-left:auto; }
+
+    /* EVENT DETAIL CARD */
+    .detail-card { background:var(--white); border:1px solid var(--gray-100); border-radius:12px; padding:24px; margin-bottom:14px; }
+    .detail-header { display:flex; align-items:center; gap:12px; margin-bottom:20px; padding-bottom:16px; border-bottom:1px solid var(--gray-100); }
+    .detail-title { font-size:16px; font-weight:700; color:var(--brown-dark); font-family:monospace; }
+    .detail-sub { font-size:12px; color:var(--gray-400); margin-top:3px; }
+    .field-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px; }
+    .field-box { background:var(--gray-50); border-radius:8px; padding:12px; }
+    .field-key { font-size:10px; font-weight:700; color:var(--gray-400); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; font-family:monospace; }
+    .field-val { font-size:12px; font-weight:600; color:var(--brown-dark); font-family:monospace; word-break:break-all; }
+    .payload-title { font-size:12px; font-weight:700; color:var(--gray-600); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px; }
+    .payload-code { background:var(--brown-dark); border-radius:10px; padding:16px; font-family:monospace; font-size:12px; color:#E8D5B8; line-height:1.9; overflow-x:auto; }
+    .pk { color:var(--gold-light); }
+    .ps { color:#86EFAC; }
+    .pn { color:#93C5FD; }
+    .pb { color:#FCA5A5; }
+    .pc { color:#D1D5DB; }
+
+    /* SCHEMA */
+    .schema-card { background:var(--white); border:1px solid var(--gray-100); border-radius:12px; overflow:hidden; margin-bottom:14px; }
+    .schema-card-title { font-size:13px; font-weight:700; color:var(--brown-dark); padding:12px 16px; background:var(--gray-50); border-bottom:1px solid var(--gray-100); }
+    .schema-tbl { width:100%; border-collapse:collapse; }
+    .schema-tbl th { text-align:left; padding:9px 12px; background:var(--gray-50); color:var(--gray-400); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; border-bottom:1px solid var(--gray-100); }
+    .schema-tbl td { padding:10px 12px; border-bottom:1px solid var(--gray-100); font-size:12px; vertical-align:middle; }
+    .schema-tbl tr:last-child td { border-bottom:none; }
+    .schema-field { font-family:monospace; font-weight:700; color:var(--brown-dark); }
+    .schema-type { font-family:monospace; font-size:11px; color:var(--blue); background:var(--blue-bg); padding:2px 6px; border-radius:4px; white-space:nowrap; }
+    .schema-req { font-size:10px; font-weight:700; color:var(--green); background:var(--green-bg); padding:2px 8px; border-radius:20px; white-space:nowrap; }
+    .schema-desc { font-size:12px; color:var(--gray-600); }
+
+    /* CATEGORY GRID */
+    .cat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:14px; }
+    .cat-card { background:var(--white); border:1px solid var(--gray-100); border-radius:10px; padding:14px; }
+    .cat-card-title { font-size:12px; font-weight:700; color:var(--brown-dark); margin-bottom:8px; display:flex; align-items:center; gap:6px; }
+    .cat-card-events { font-size:11px; color:var(--gray-600); line-height:1.9; font-family:monospace; }
+  </style>
+</head>
+<body>
+
+<!-- DEMO BAR -->
+<div class="demo-bar">
+  <span class="demo-label">F-09 Audit Log:</span>
+  <button class="demo-tab active" onclick="show('log')">All Events (AC-09.1, 09.5)</button>
+  <button class="demo-tab"        onclick="show('filtered')">Filter by User + Type (AC-09.5)</button>
+  <button class="demo-tab"        onclick="show('detail')">Event Detail (AC-09.2)</button>
+  <button class="demo-tab"        onclick="show('void')">Void Event — AC-09.6</button>
+  <button class="demo-tab"        onclick="show('auth')">Failed Logins (AC-09.7)</button>
+  <button class="demo-tab"        onclick="show('schema')">Event Schema (AC-09.8)</button>
+</div>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">☕</div>
+    <span class="logo-text">Cafe<span>OSum</span></span>
+  </div>
+  <nav>
+    <span class="nav-label">Main</span>
+    <div class="nav-item"><span class="nav-icon">⊞</span> Dashboard</div>
+    <div class="nav-item"><span class="nav-icon">☰</span> Menu</div>
+    <div class="nav-item"><span class="nav-icon">🧾</span> Billing / POS</div>
+    <div class="nav-item"><span class="nav-icon">📋</span> Orders</div>
+    <span class="nav-label">Floor</span>
+    <div class="nav-item"><span class="nav-icon">🪑</span> Tables</div>
+    <span class="nav-label">Management</span>
+    <div class="nav-item"><span class="nav-icon">📦</span> Inventory</div>
+    <div class="nav-item"><span class="nav-icon">👷</span> Staff &amp; PINs</div>
+    <span class="nav-label">Insights</span>
+    <div class="nav-item"><span class="nav-icon">📈</span> Analytics</div>
+    <div class="nav-item active"><span class="nav-icon">📜</span> Audit Log</div>
+    <div class="nav-item"><span class="nav-icon">⚙</span> Settings</div>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="logout-btn"><span>↪</span> Logout</div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main-wrapper">
+  <header class="topbar">
+    <span class="topbar-title">📜 Audit Log</span>
+    <div class="spacer"></div>
+    <button class="topbar-btn secondary">📊 Export CSV</button>
+    <div class="user-chip">
+      <div class="user-avatar">RK</div>
+      <span class="user-name">Rajesh K.</span>
+    </div>
+  </header>
+
+  <div class="content-area">
+    <div class="view active" id="view-log"></div>
+    <div class="view"        id="view-filtered"></div>
+    <div class="view"        id="view-detail"></div>
+    <div class="view"        id="view-void"></div>
+    <div class="view"        id="view-auth"></div>
+    <div class="view"        id="view-schema"></div>
+  </div>
+</div>
+
+<script>
+/* ─── DATA ─── */
+const EVENTS = [
+  {id:'EVT-0892',cat:'Billing',   type:'BILL_SETTLED',      user:'Priya S.',  ts:'29 Jun 2026, 09:47', ip:'192.168.1.4',  entity:'Bill #B-1042',  summary:'Bill settled · ₹480 · UPI',                              status:'ok'},
+  {id:'EVT-0891',cat:'Orders',    type:'ORDER_CREATED',     user:'Suresh M.', ts:'29 Jun 2026, 09:41', ip:'192.168.1.3',  entity:'Order #O-1041', summary:'New order · T4 · 3 items',                               status:'ok'},
+  {id:'EVT-0890',cat:'Auth',      type:'LOGIN',             user:'Rajesh K.', ts:'29 Jun 2026, 09:15', ip:'192.168.1.2',  entity:'Session',        summary:'Login successful · Chrome · Android',                    status:'ok'},
+  {id:'EVT-0889',cat:'Inventory', type:'STOCK_ADDED',       user:'Rajesh K.', ts:'29 Jun 2026, 08:52', ip:'192.168.1.2',  entity:'Milk',           summary:'Stock added · +5,000 ml · Previous: 2,400 ml',          status:'ok'},
+  {id:'EVT-0888',cat:'Billing',   type:'BILL_VOIDED',       user:'Rajesh K.', ts:'28 Jun 2026, 20:14', ip:'192.168.1.2',  entity:'Bill #B-1038',  summary:'Bill voided · ₹840 · Customer left without paying',     status:'warn'},
+  {id:'EVT-0887',cat:'Billing',   type:'BILL_SETTLED',      user:'Priya S.',  ts:'28 Jun 2026, 20:01', ip:'192.168.1.4',  entity:'Bill #B-1037',  summary:'Bill settled · ₹620 · Cash',                            status:'ok'},
+  {id:'EVT-0886',cat:'Billing',   type:'DISCOUNT_APPLIED',  user:'Priya S.',  ts:'28 Jun 2026, 19:58', ip:'192.168.1.4',  entity:'Bill #B-1037',  summary:'Discount applied · 10% · ₹68 off',                      status:'ok'},
+  {id:'EVT-0885',cat:'Orders',    type:'ITEM_ADDED',        user:'Kavya R.',  ts:'28 Jun 2026, 19:23', ip:'192.168.1.5',  entity:'Order #O-1036', summary:'Item added · Masala Chai × 2 · T2',                     status:'ok'},
+  {id:'EVT-0884',cat:'Auth',      type:'FAILED_LOGIN',      user:'—',         ts:'28 Jun 2026, 14:24', ip:'103.45.12.88', entity:'Session',        summary:'Login failed (5th attempt) · Account locked 15 min',   status:'error'},
+  {id:'EVT-0883',cat:'Auth',      type:'FAILED_LOGIN',      user:'—',         ts:'28 Jun 2026, 14:23', ip:'103.45.12.88', entity:'Session',        summary:'Login failed (4th attempt)',                            status:'error'},
+  {id:'EVT-0882',cat:'Auth',      type:'FAILED_LOGIN',      user:'—',         ts:'28 Jun 2026, 14:23', ip:'103.45.12.88', entity:'Session',        summary:'Login failed (3rd attempt)',                            status:'error'},
+  {id:'EVT-0881',cat:'Auth',      type:'FAILED_LOGIN',      user:'—',         ts:'28 Jun 2026, 14:22', ip:'103.45.12.88', entity:'Session',        summary:'Login failed (2nd attempt)',                            status:'warn'},
+  {id:'EVT-0880',cat:'Auth',      type:'FAILED_LOGIN',      user:'—',         ts:'28 Jun 2026, 14:22', ip:'103.45.12.88', entity:'Session',        summary:'Login failed (1st attempt)',                            status:'warn'},
+  {id:'EVT-0879',cat:'Setup',     type:'MENU_ITEM_ADDED',   user:'Rajesh K.', ts:'28 Jun 2026, 11:30', ip:'192.168.1.2',  entity:'Cold Brew',      summary:'Menu item added · Cold Beverages · ₹180',               status:'ok'},
+  {id:'EVT-0878',cat:'Setup',     type:'TABLE_EDITED',      user:'Rajesh K.', ts:'28 Jun 2026, 10:14', ip:'192.168.1.2',  entity:'T5 — Sofa',     summary:'Table capacity: 4 seats → 6 seats',                     status:'ok'},
+  {id:'EVT-0877',cat:'Inventory', type:'THRESHOLD_CHANGED', user:'Rajesh K.', ts:'27 Jun 2026, 18:40', ip:'192.168.1.2',  entity:'Espresso Beans', summary:'Low-stock threshold: 500g → 750g',                     status:'ok'},
+  {id:'EVT-0876',cat:'Analytics', type:'EXPORT_TRIGGERED',  user:'Rajesh K.', ts:'27 Jun 2026, 17:22', ip:'192.168.1.2',  entity:'GST Report',     summary:'PDF export · June 2026 GST Report',                    status:'ok'},
+  {id:'EVT-0875',cat:'Billing',   type:'BILL_REFUNDED',     user:'Rajesh K.', ts:'26 Jun 2026, 21:08', ip:'192.168.1.2',  entity:'Bill #B-1021',  summary:'Refund issued · ₹240 · Wrong item served',             status:'warn'},
+  {id:'EVT-0874',cat:'Staff',     type:'STAFF_ADDED',       user:'Rajesh K.', ts:'25 Jun 2026, 10:02', ip:'192.168.1.2',  entity:'Kavya R.',       summary:'New staff member added · Role: Waiter',                 status:'ok'},
+  {id:'EVT-0873',cat:'Auth',      type:'PASSWORD_RESET',    user:'Priya S.',  ts:'24 Jun 2026, 09:35', ip:'122.178.4.21', entity:'Session',        summary:'Password reset email sent · priya@cafeocafe.in',        status:'ok'},
+];
+
+/* ─── HELPERS ─── */
+function catClass(c) {
+  return {Auth:'cat-auth',Billing:'cat-billing',Orders:'cat-orders',Setup:'cat-setup',Inventory:'cat-inventory',Staff:'cat-staff',Analytics:'cat-analytics'}[c] || 'cat-auth';
+}
+function statusIcon(s) {
+  if (s==='ok')    return '<span class="status-ok">✓</span>';
+  if (s==='warn')  return '<span class="status-warn">⚠</span>';
+  if (s==='error') return '<span class="status-error">✕</span>';
+  return '';
+}
+
+/* ─── RENDER: event table into a container div ─── */
+function renderTable(events, id) {
+  const rows = events.map(e => {
+    const susCls = e.ip === '103.45.12.88' ? ' ip-sus' : '';
+    return `<tr>
+      <td><span class="evt-id">${e.id}</span></td>
+      <td style="font-size:11px;color:var(--gray-600);white-space:nowrap;">${e.ts}</td>
+      <td><span class="cat ${catClass(e.cat)}">${e.cat}</span></td>
+      <td><span class="evt-type">${e.type}</span></td>
+      <td style="font-size:12px;color:var(--gray-600);">${e.user}</td>
+      <td style="font-size:12px;color:var(--brown-dark);">${e.summary}</td>
+      <td><span class="ip-tag${susCls}">${e.ip}</span></td>
+      <td style="text-align:center;">${statusIcon(e.status)}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById(id).innerHTML = `
+    <div class="tbl-wrap">
+      <table class="evt-tbl">
+        <thead><tr>
+          <th>Event ID</th><th>Timestamp (IST)</th><th>Category</th><th>Event Type</th>
+          <th>User</th><th>Summary</th><th>IP Address</th><th></th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+/* ─── VIEW: ALL EVENTS ─── */
+function renderLog() {
+  document.getElementById('view-log').innerHTML = `
+    <div class="section-header">
+      <div>
+        <div class="section-title">All Activity — AC-09.1, AC-09.5</div>
+        <div class="section-sub">Every state-changing action on the platform · Read-only page visits are not captured</div>
+      </div>
+    </div>
+    <div class="info-bar">
+      <span class="info-tag">90 days in-app</span>
+      Showing 01 Apr – 29 Jun 2026 &nbsp;·&nbsp;
+      Full history retained 3 years in backend &nbsp;·&nbsp;
+      <strong>AC-09.4:</strong> Events are immutable — no edits or deletes permitted
+    </div>
+    <div class="filter-bar">
+      <span class="filter-label">Date Range:</span>
+      <select class="filter-select"><option>Last 30 Days</option><option>Last 60 Days</option><option selected>Last 90 Days</option><option>Custom</option></select>
+      <div class="filter-divider"></div>
+      <span class="filter-label">User:</span>
+      <select class="filter-select"><option selected>All Users</option><option>Rajesh K.</option><option>Priya S.</option><option>Suresh M.</option><option>Kavya R.</option></select>
+      <div class="filter-divider"></div>
+      <span class="filter-label">Category:</span>
+      <select class="filter-select"><option selected>All Categories</option><option>Auth</option><option>Billing</option><option>Orders</option><option>Setup</option><option>Inventory</option><option>Staff</option><option>Analytics</option></select>
+    </div>
+    <div id="log-tbl"></div>
+    <div class="pagination">
+      <button class="pag-btn active">1</button>
+      <button class="pag-btn">2</button>
+      <button class="pag-btn">3</button>
+      <span class="pag-info">Showing 1–20 of 892 events</span>
+    </div>`;
+  renderTable(EVENTS, 'log-tbl');
+}
+
+/* ─── VIEW: FILTERED ─── */
+function renderFiltered() {
+  const events = EVENTS.filter(e => e.user === 'Priya S.' && e.cat === 'Billing');
+  document.getElementById('view-filtered').innerHTML = `
+    <div class="section-header">
+      <div>
+        <div class="section-title">Filtered View — AC-09.5</div>
+        <div class="section-sub">Audit log supports filtering by date range, user, and event category</div>
+      </div>
+    </div>
+    <div class="filter-bar">
+      <span class="filter-label">Date Range:</span>
+      <select class="filter-select"><option selected>Last 90 Days</option></select>
+      <div class="filter-divider"></div>
+      <span class="filter-label">Active filters:</span>
+      <span class="filter-chip">👤 Priya S. <span class="chip-x">×</span></span>
+      <span class="filter-chip filter-chip-amber">💳 Billing <span class="chip-x">×</span></span>
+    </div>
+    <div id="filtered-tbl"></div>
+    <div class="pagination">
+      <button class="pag-btn active">1</button>
+      <span class="pag-info">Showing 1–${events.length} of ${events.length} events matching filters</span>
+    </div>`;
+  renderTable(events, 'filtered-tbl');
+}
+
+/* ─── VIEW: EVENT DETAIL ─── */
+function renderDetail() {
+  document.getElementById('view-detail').innerHTML = `
+    <div class="section-header">
+      <div>
+        <div class="section-title">Event Detail — AC-09.2</div>
+        <div class="section-sub">All 9 required fields per structured event record, including before/after state payload</div>
+      </div>
+    </div>
+    <div class="immutable">🔒 AC-09.4 — Events are immutable once written. No update or delete operations are permitted on the event store.</div>
+    <div class="detail-card">
+      <div class="detail-header">
+        <span class="cat cat-billing" style="font-size:13px;padding:5px 13px;">Billing</span>
+        <div>
+          <div class="detail-title">BILL_SETTLED</div>
+          <div class="detail-sub">EVT-0892 &nbsp;·&nbsp; 29 Jun 2026, 09:47:12 IST &nbsp;·&nbsp; Priya S. (Cashier)</div>
+        </div>
+        <div style="margin-left:auto;"><span class="status-ok" style="font-size:22px;">✓</span></div>
+      </div>
+      <div class="field-grid">
+        <div class="field-box">
+          <div class="field-key">event_id &nbsp;— AC-09.2</div>
+          <div class="field-val">EVT-0892</div>
+        </div>
+        <div class="field-box">
+          <div class="field-key">event_type &nbsp;— AC-09.2</div>
+          <div class="field-val">BILL_SETTLED</div>
+        </div>
+        <div class="field-box">
+          <div class="field-key">user_id &nbsp;— AC-09.2</div>
+          <div class="field-val">USR-002 (Priya S.)</div>
+        </div>
+        <div class="field-box">
+          <div class="field-key">cafe_id &nbsp;— AC-09.2</div>
+          <div class="field-val">CAFE-4421</div>
+        </div>
+        <div class="field-box">
+          <div class="field-key">timestamp UTC &nbsp;— AC-09.2</div>
+          <div class="field-val">2026-06-29T04:17:12Z</div>
+        </div>
+        <div class="field-box">
+          <div class="field-key">ip_address &nbsp;— AC-09.2</div>
+          <div class="field-val">192.168.1.4</div>
+        </div>
+        <div class="field-box">
+          <div class="field-key">entity_type &nbsp;— AC-09.2</div>
+          <div class="field-val">Bill</div>
+        </div>
+        <div class="field-box">
+          <div class="field-key">entity_id &nbsp;— AC-09.2</div>
+          <div class="field-val">B-1042</div>
+        </div>
+      </div>
+      <div class="payload-title">payload — before/after state for mutations &nbsp;— AC-09.2</div>
+      <div class="payload-code"><span class="pc">{</span>
+  <span class="pk">"bill_id"</span><span class="pc">:</span>       <span class="ps">"B-1042"</span><span class="pc">,</span>
+  <span class="pk">"table"</span><span class="pc">:</span>         <span class="ps">"T2 — Corner"</span><span class="pc">,</span>
+  <span class="pk">"cashier"</span><span class="pc">:</span>       <span class="ps">"Priya S."</span><span class="pc">,</span>
+  <span class="pk">"amount"</span><span class="pc">:</span>        <span class="pn">480</span><span class="pc">,</span>
+  <span class="pk">"payment_mode"</span><span class="pc">:</span>  <span class="ps">"UPI"</span><span class="pc">,</span>
+  <span class="pk">"gst_amount"</span><span class="pc">:</span>    <span class="pn">22.86</span><span class="pc">,</span>
+  <span class="pk">"items_count"</span><span class="pc">:</span>   <span class="pn">3</span><span class="pc">,</span>
+  <span class="pk">"before_state"</span><span class="pc">: {</span> <span class="pk">"status"</span><span class="pc">:</span> <span class="ps">"PENDING"</span> <span class="pc">},</span>
+  <span class="pk">"after_state"</span><span class="pc">:  {</span> <span class="pk">"status"</span><span class="pc">:</span> <span class="ps">"SETTLED"</span><span class="pc">,</span> <span class="pk">"settled_at"</span><span class="pc">:</span> <span class="ps">"2026-06-29T04:17:12Z"</span> <span class="pc">}</span>
+<span class="pc">}</span></div>
+    </div>`;
+}
+
+/* ─── VIEW: VOID / REFUND ─── */
+function renderVoid() {
+  document.getElementById('view-void').innerHTML = `
+    <div class="section-header">
+      <div>
+        <div class="section-title">Bill Void Event — AC-09.6</div>
+        <div class="section-sub">Void and refund events must capture: acting user · mandatory reason text · full original bill payload</div>
+      </div>
+    </div>
+    <div class="immutable">🔒 AC-09.4 — This event cannot be edited or deleted. The void reason is mandatory and permanently recorded.</div>
+    <div class="detail-card">
+      <div class="detail-header">
+        <span class="cat cat-billing" style="font-size:13px;padding:5px 13px;">Billing</span>
+        <div>
+          <div class="detail-title">BILL_VOIDED</div>
+          <div class="detail-sub">EVT-0888 &nbsp;·&nbsp; 28 Jun 2026, 20:14:31 IST &nbsp;·&nbsp; Rajesh K. (Owner)</div>
+        </div>
+        <div style="margin-left:auto;"><span class="status-warn" style="font-size:22px;">⚠</span></div>
+      </div>
+      <div class="field-grid">
+        <div class="field-box">
+          <div class="field-key">event_id</div>
+          <div class="field-val">EVT-0888</div>
+        </div>
+        <div class="field-box">
+          <div class="field-key">event_type</div>
+          <div class="field-val">BILL_VOIDED</div>
+        </div>
+        <div class="field-box">
+          <div class="field-key">acting_user &nbsp;— AC-09.6</div>
+          <div class="field-val">USR-001 — Rajesh K. (Owner)</div>
+        </div>
+        <div class="field-box">
+          <div class="field-key">entity_id</div>
+          <div class="field-val">B-1038 · Table T3 — Centre</div>
+        </div>
+        <div class="field-box" style="grid-column:1/-1;">
+          <div class="field-key">void_reason — mandatory text (AC-09.6)</div>
+          <div class="field-val" style="color:var(--red);">"Customer left without paying — voided after 30 minutes of waiting"</div>
+        </div>
+      </div>
+      <div class="payload-title">payload — original bill captured in full (AC-09.6)</div>
+      <div class="payload-code"><span class="pc">{</span>
+  <span class="pk">"void_reason"</span><span class="pc">:</span> <span class="ps">"Customer left without paying — voided after 30 minutes of waiting"</span><span class="pc">,</span>
+  <span class="pk">"original_bill"</span><span class="pc">: {</span>
+    <span class="pk">"bill_id"</span><span class="pc">:</span>      <span class="ps">"B-1038"</span><span class="pc">,</span>
+    <span class="pk">"table"</span><span class="pc">:</span>        <span class="ps">"T3 — Centre"</span><span class="pc">,</span>
+    <span class="pk">"created_at"</span><span class="pc">:</span>   <span class="ps">"2026-06-28T14:10:09Z"</span><span class="pc">,</span>
+    <span class="pk">"items"</span><span class="pc">: [</span>
+      <span class="pc">{</span> <span class="pk">"name"</span><span class="pc">:</span> <span class="ps">"Cappuccino"</span><span class="pc">,</span>      <span class="pk">"qty"</span><span class="pc">:</span> <span class="pn">3</span><span class="pc">,</span> <span class="pk">"unit_price"</span><span class="pc">:</span> <span class="pn">120</span><span class="pc">,</span> <span class="pk">"line_total"</span><span class="pc">:</span> <span class="pn">360</span> <span class="pc">},</span>
+      <span class="pc">{</span> <span class="pk">"name"</span><span class="pc">:</span> <span class="ps">"Masala Dosa"</span><span class="pc">,</span>     <span class="pk">"qty"</span><span class="pc">:</span> <span class="pn">1</span><span class="pc">,</span> <span class="pk">"unit_price"</span><span class="pc">:</span> <span class="pn">140</span><span class="pc">,</span> <span class="pk">"line_total"</span><span class="pc">:</span> <span class="pn">140</span> <span class="pc">},</span>
+      <span class="pc">{</span> <span class="pk">"name"</span><span class="pc">:</span> <span class="ps">"Cold Coffee"</span><span class="pc">,</span>      <span class="pk">"qty"</span><span class="pc">:</span> <span class="pn">2</span><span class="pc">,</span> <span class="pk">"unit_price"</span><span class="pc">:</span> <span class="pn">100</span><span class="pc">,</span> <span class="pk">"line_total"</span><span class="pc">:</span> <span class="pn">200</span> <span class="pc">},</span>
+      <span class="pc">{</span> <span class="pk">"name"</span><span class="pc">:</span> <span class="ps">"Blueberry Muffin"</span><span class="pc">,</span> <span class="pk">"qty"</span><span class="pc">:</span> <span class="pn">1</span><span class="pc">,</span> <span class="pk">"unit_price"</span><span class="pc">:</span> <span class="pn">140</span><span class="pc">,</span> <span class="pk">"line_total"</span><span class="pc">:</span> <span class="pn">140</span> <span class="pc">}</span>
+    <span class="pc">],</span>
+    <span class="pk">"grand_total"</span><span class="pc">:</span>  <span class="pn">840</span><span class="pc">,</span>
+    <span class="pk">"net_sales"</span><span class="pc">:</span>    <span class="pn">800</span><span class="pc">,</span>
+    <span class="pk">"gst_amount"</span><span class="pc">:</span>   <span class="pn">40</span><span class="pc">,</span>
+    <span class="pk">"payment_mode"</span><span class="pc">:</span> <span class="pb">null</span><span class="pc">,</span>
+    <span class="pk">"settled"</span><span class="pc">:</span>      <span class="pb">false</span>
+  <span class="pc">}</span>
+<span class="pc">}</span></div>
+    </div>`;
+}
+
+/* ─── VIEW: AUTH / FAILED LOGINS ─── */
+function renderAuth() {
+  const authEvents = EVENTS.filter(e => e.cat === 'Auth');
+  document.getElementById('view-auth').innerHTML = `
+    <div class="section-header">
+      <div>
+        <div class="section-title">Authentication Events — AC-09.7</div>
+        <div class="section-sub">IP address and timestamp captured on every auth event to support brute-force detection</div>
+      </div>
+    </div>
+    <div class="alert-banner">
+      <span class="alert-icon">🚨</span>
+      <div>
+        <div class="alert-title">Brute-Force Detection Triggered — AC-09.7</div>
+        <div class="alert-sub">
+          5 consecutive FAILED_LOGIN events from IP <strong>103.45.12.88</strong> between 14:22–14:24 on 28 Jun 2026.<br/>
+          Account auto-locked for 15 minutes (AC-01a.6). Owner notified by email. Suspicious IP flagged in red below.
+        </div>
+      </div>
+    </div>
+    <div id="auth-tbl"></div>`;
+  renderTable(authEvents, 'auth-tbl');
+}
+
+/* ─── VIEW: SCHEMA ─── */
+function renderSchema() {
+  document.getElementById('view-schema').innerHTML = `
+    <div class="section-header">
+      <div>
+        <div class="section-title">Event Schema — AC-09.2, AC-09.3, AC-09.8</div>
+        <div class="section-sub">Standard event record structure · Append-only event store · Designed for Sprint 2 AI chatbot query layer</div>
+      </div>
+    </div>
+    <div class="info-bar">
+      <span class="info-tag">AC-09.3</span>
+      Events are written <strong>asynchronously</strong> via a message queue (e.g. SQS → DynamoDB Streams) — fire-and-forget with guaranteed delivery.
+      Zero latency added to the triggering user action.
+    </div>
+    <div class="schema-card">
+      <div class="schema-card-title">Required Fields per Event Record — AC-09.2</div>
+      <table class="schema-tbl">
+        <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="schema-field">event_id</td>    <td><span class="schema-type">UUID</span></td>      <td><span class="schema-req">Required</span></td><td class="schema-desc">Globally unique, immutable identifier for this event</td></tr>
+          <tr><td class="schema-field">event_type</td>  <td><span class="schema-type">ENUM</span></td>      <td><span class="schema-req">Required</span></td><td class="schema-desc">e.g. BILL_SETTLED, FAILED_LOGIN, STOCK_ADDED</td></tr>
+          <tr><td class="schema-field">user_id</td>     <td><span class="schema-type">String</span></td>    <td><span class="schema-req">Required</span></td><td class="schema-desc">Acting user — null for system-triggered events</td></tr>
+          <tr><td class="schema-field">cafe_id</td>     <td><span class="schema-type">String</span></td>    <td><span class="schema-req">Required</span></td><td class="schema-desc">Multi-tenant isolation key; all queries scoped to cafe_id</td></tr>
+          <tr><td class="schema-field">timestamp</td>   <td><span class="schema-type">DateTime</span></td>  <td><span class="schema-req">Required</span></td><td class="schema-desc">UTC timestamp at event emission, ISO 8601 — primary index for time-window queries (AC-09.8)</td></tr>
+          <tr><td class="schema-field">ip_address</td>  <td><span class="schema-type">String</span></td>    <td><span class="schema-req">Required</span></td><td class="schema-desc">Client IP — mandatory on auth events for brute-force detection (AC-09.7)</td></tr>
+          <tr><td class="schema-field">entity_type</td> <td><span class="schema-type">String</span></td>    <td><span class="schema-req">Required</span></td><td class="schema-desc">e.g. Bill, Order, Ingredient, Staff, Table, Session</td></tr>
+          <tr><td class="schema-field">entity_id</td>   <td><span class="schema-type">String</span></td>    <td><span class="schema-req">Required</span></td><td class="schema-desc">FK to affected entity — indexed for entity-level queries (AC-09.8)</td></tr>
+          <tr><td class="schema-field">payload</td>     <td><span class="schema-type">JSON</span></td>      <td><span class="schema-req">Required</span></td><td class="schema-desc">before_state + after_state for mutations; full original object for BILL_VOIDED / BILL_REFUNDED (AC-09.6)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="font-size:14px;font-weight:700;color:var(--brown-dark);margin:4px 0 12px;">Event Categories &amp; Types</div>
+    <div class="cat-grid">
+      <div class="cat-card">
+        <div class="cat-card-title"><span class="cat cat-auth">Auth</span></div>
+        <div class="cat-card-events">LOGIN · LOGOUT<br/>FAILED_LOGIN · PASSWORD_RESET</div>
+      </div>
+      <div class="cat-card">
+        <div class="cat-card-title"><span class="cat cat-billing">Billing</span></div>
+        <div class="cat-card-events">BILL_GENERATED · BILL_SETTLED<br/>DISCOUNT_APPLIED · BILL_VOIDED · BILL_REFUNDED</div>
+      </div>
+      <div class="cat-card">
+        <div class="cat-card-title"><span class="cat cat-orders">Orders</span></div>
+        <div class="cat-card-events">ORDER_CREATED · ITEM_ADDED<br/>ITEM_REMOVED · ORDER_CANCELLED</div>
+      </div>
+      <div class="cat-card">
+        <div class="cat-card-title"><span class="cat cat-setup">Setup</span></div>
+        <div class="cat-card-events">PROFILE_UPDATED · TABLE_ADDED<br/>TABLE_EDITED · MENU_ITEM_ADDED · MENU_ITEM_DELETED</div>
+      </div>
+      <div class="cat-card">
+        <div class="cat-card-title"><span class="cat cat-inventory">Inventory</span></div>
+        <div class="cat-card-events">STOCK_ADDED · THRESHOLD_CHANGED<br/>LOW_STOCK_ALERT · INGREDIENT_MAPPED</div>
+      </div>
+      <div class="cat-card">
+        <div class="cat-card-title"><span class="cat cat-staff">Staff</span></div>
+        <div class="cat-card-events">STAFF_ADDED · ROLE_CHANGED<br/>ACCESS_REVOKED · STAFF_DELETED</div>
+      </div>
+    </div>
+    <div class="schema-card">
+      <div class="schema-card-title">Sprint 2 AI Chatbot Query Dimensions — AC-09.8</div>
+      <table class="schema-tbl">
+        <thead><tr><th>Query Dimension</th><th>Schema Field</th><th>Example Chatbot Question</th></tr></thead>
+        <tbody>
+          <tr><td class="schema-desc" style="font-weight:700;">Time window</td><td class="schema-field">timestamp</td><td class="schema-desc">"What happened last Sunday evening?"</td></tr>
+          <tr><td class="schema-desc" style="font-weight:700;">Event type</td><td class="schema-field">event_type</td><td class="schema-desc">"How many bills were voided this week?"</td></tr>
+          <tr><td class="schema-desc" style="font-weight:700;">Entity</td><td class="schema-field">entity_id</td><td class="schema-desc">"Show me all changes to Cappuccino this month"</td></tr>
+          <tr><td class="schema-desc" style="font-weight:700;">User filter</td><td class="schema-field">user_id</td><td class="schema-desc">"How many bills did Priya generate today?"</td></tr>
+          <tr><td class="schema-desc" style="font-weight:700;">Category</td><td class="schema-field">event_type prefix</td><td class="schema-desc">"Any suspicious login activity this week?"</td></tr>
+        </tbody>
+      </table>
+    </div>`;
+}
+
+/* ─── SHOW CONTROLLER ─── */
+const STATES = ['log','filtered','detail','void','auth','schema'];
+
+function show(state) {
+  document.querySelectorAll('.demo-tab').forEach((t,i) => {
+    t.classList.toggle('active', STATES[i] === state);
+  });
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + state).classList.add('active');
+}
+
+/* ─── INIT ─── */
+renderLog();
+renderFiltered();
+renderDetail();
+renderVoid();
+renderAuth();
+renderSchema();
+show('log');
+</script>
+</body>
+</html>

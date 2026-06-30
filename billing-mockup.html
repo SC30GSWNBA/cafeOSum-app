@@ -1,0 +1,1430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CafeOSum — Billing / POS (F-05)</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --brown-dark:  #3B1F0E;
+      --brown-mid:   #7C4A1E;
+      --brown-light: #C08040;
+      --gold:        #D4A017;
+      --gold-light:  #F0C040;
+      --cream:       #FDF8F2;
+      --white:       #FFFFFF;
+      --gray-50:     #F9F5F0;
+      --gray-100:    #F0EBE3;
+      --gray-200:    #DDD5C8;
+      --gray-400:    #9E8E7E;
+      --gray-600:    #6B5B4E;
+      --green:       #2E8B57;
+      --green-bg:    #E8F5EE;
+      --green-border:#86EFAC;
+      --amber:       #D97706;
+      --amber-bg:    #FEF3C7;
+      --amber-border:#FDE68A;
+      --red:         #DC2626;
+      --red-bg:      #FEE2E2;
+      --red-border:  #FCA5A5;
+      --blue:        #2563EB;
+      --blue-bg:     #EFF6FF;
+      --blue-border: #BFDBFE;
+      --sidebar-w:   240px;
+      --header-h:    56px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--gray-50);
+      color: var(--brown-dark);
+      padding-top: 36px;
+      overflow: hidden;
+      height: 100vh;
+    }
+
+    /* ── DEMO BAR ── */
+    .demo-bar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 300;
+      background: var(--brown-dark); padding: 6px 16px;
+      display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    }
+    .demo-label { font-size: 11px; font-weight: 700; color: var(--gold-light); margin-right: 4px; white-space: nowrap; }
+    .demo-tab {
+      padding: 3px 11px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.2);
+      color: rgba(255,255,255,0.6); cursor: pointer; font-size: 11px; font-weight: 500;
+      font-family: inherit; background: transparent; transition: all 0.15s; white-space: nowrap;
+    }
+    .demo-tab:hover { background: rgba(255,255,255,0.1); color: white; }
+    .demo-tab.active { background: var(--gold); color: var(--brown-dark); border-color: var(--gold); font-weight: 700; }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: var(--sidebar-w); background: var(--white);
+      border-right: 1px solid var(--gray-100);
+      position: fixed; top: 36px; left: 0; bottom: 0;
+      display: flex; flex-direction: column; z-index: 200;
+    }
+    .sidebar-logo {
+      padding: 16px 20px; border-bottom: 1px solid var(--gray-100);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .logo-icon {
+      width: 34px; height: 34px; background: var(--brown-dark);
+      border-radius: 9px; display: flex; align-items: center;
+      justify-content: center; color: var(--gold-light); font-size: 17px;
+    }
+    .logo-text { font-size: 16px; font-weight: 700; color: var(--brown-dark); }
+    .logo-text span { color: var(--gold); }
+    nav { flex: 1; padding: 14px 12px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
+    .nav-label { font-size: 10px; font-weight: 600; color: var(--gray-400); letter-spacing: 0.8px; text-transform: uppercase; padding: 10px 8px 4px; }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+      border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500;
+      color: var(--gray-600); transition: background 0.15s;
+    }
+    .nav-item:hover { background: var(--gray-50); color: var(--brown-dark); }
+    .nav-item.active { background: var(--cream); color: var(--brown-dark); font-weight: 600; }
+    .nav-icon { font-size: 15px; width: 20px; text-align: center; }
+    .sidebar-footer { padding: 12px; border-top: 1px solid var(--gray-100); }
+    .logout-btn { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--red); background: var(--red-bg); }
+
+    /* ── MAIN WRAPPER ── */
+    .main-wrapper {
+      margin-left: var(--sidebar-w);
+      height: calc(100vh - 36px);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── TOPBAR ── */
+    .topbar {
+      height: var(--header-h); background: var(--white);
+      border-bottom: 1px solid var(--gray-100);
+      display: flex; align-items: center; padding: 0 18px; gap: 10px;
+      flex-shrink: 0;
+    }
+    .topbar-back {
+      width: 32px; height: 32px; border-radius: 8px;
+      border: 1px solid var(--gray-200); background: var(--gray-50);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 14px; color: var(--gray-600);
+    }
+    .topbar-title { font-size: 18px; font-weight: 700; color: var(--brown-dark); white-space: nowrap; }
+    .table-badge {
+      display: flex; align-items: center; gap: 6px; padding: 4px 12px;
+      background: var(--amber-bg); border: 1px solid var(--amber-border);
+      border-radius: 20px; font-size: 12px; font-weight: 600; color: var(--amber);
+    }
+    .spacer { flex: 1; }
+    .user-chip {
+      display: flex; align-items: center; gap: 8px; padding: 4px 10px 4px 4px;
+      border-radius: 20px; background: var(--gray-50); border: 1px solid var(--gray-200);
+    }
+    .user-avatar {
+      width: 26px; height: 26px; border-radius: 50%;
+      background: var(--brown-mid); color: white;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 600;
+    }
+    .user-name { font-size: 12px; font-weight: 600; color: var(--brown-dark); }
+    .topbar-pill {
+      display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600;
+      padding: 5px 12px; border-radius: 20px;
+    }
+    .topbar-pill.green { color: var(--green); background: var(--green-bg); border: 1px solid var(--green-border); }
+    .topbar-pill.red { color: var(--red); background: var(--red-bg); border: 1px solid var(--red-border); }
+
+    /* ── SPLIT AREA ── */
+    .split-area { flex: 1; overflow: hidden; display: flex; }
+
+    /* ── BILL PANEL (LEFT) ── */
+    .bill-panel {
+      flex: 1; overflow-y: auto; padding: 20px 24px;
+      background: var(--gray-50); display: flex; flex-direction: column; gap: 14px;
+    }
+
+    /* ── BILL CARD (receipt) ── */
+    .bill-card {
+      background: var(--white); border: 1px solid var(--gray-100);
+      border-radius: 14px; overflow: hidden; position: relative;
+      box-shadow: 0 2px 8px rgba(59,31,14,0.06);
+    }
+
+    .bill-cafe-header {
+      padding: 20px 24px 16px; text-align: center;
+      border-bottom: 2px dashed var(--gray-200);
+    }
+    .bill-cafe-logo { font-size: 30px; margin-bottom: 6px; }
+    .bill-cafe-name { font-size: 20px; font-weight: 800; color: var(--brown-dark); letter-spacing: -0.5px; }
+    .bill-cafe-name span { color: var(--gold); }
+    .bill-cafe-sub { font-size: 11px; color: var(--gray-400); margin-top: 3px; line-height: 1.6; }
+    .bill-gstin {
+      display: inline-flex; align-items: center; gap: 5px; margin-top: 8px;
+      background: var(--cream); border: 1px solid var(--gray-200);
+      border-radius: 6px; padding: 4px 10px; font-size: 11px; font-weight: 700;
+      color: var(--brown-dark); letter-spacing: 0.5px;
+    }
+
+    .bill-meta {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px;
+      padding: 14px 24px; border-bottom: 1px solid var(--gray-100);
+      background: var(--gray-50);
+    }
+    .bill-meta-row { display: flex; gap: 6px; font-size: 12px; }
+    .bill-meta-label { color: var(--gray-400); font-weight: 500; white-space: nowrap; }
+    .bill-meta-val { color: var(--brown-dark); font-weight: 600; }
+
+    /* items table */
+    .bill-items { padding: 14px 24px; border-bottom: 2px dashed var(--gray-200); }
+    .bill-items-head {
+      display: grid; grid-template-columns: 1fr 50px 70px 70px 80px;
+      gap: 4px; padding-bottom: 8px; border-bottom: 1px solid var(--gray-200);
+      font-size: 11px; font-weight: 700; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .bill-items-head .ta-r { text-align: right; }
+    .bill-item-row {
+      display: grid; grid-template-columns: 1fr 50px 70px 70px 80px;
+      gap: 4px; padding: 9px 0; border-bottom: 1px solid var(--gray-100);
+      align-items: center; font-size: 13px;
+    }
+    .bill-item-row:last-child { border-bottom: none; }
+    .ta-r { text-align: right; }
+    .item-name-cell { display: flex; align-items: center; gap: 8px; }
+    .item-emoji-sm { font-size: 16px; }
+    .item-name-text { font-weight: 600; color: var(--brown-dark); }
+    .comp-badge {
+      display: none; font-size: 9px; font-weight: 700; padding: 1px 5px;
+      background: var(--blue-bg); color: var(--blue); border: 1px solid var(--blue-border);
+      border-radius: 4px; letter-spacing: 0.3px;
+    }
+    .comp-badge.show { display: inline-block; }
+    .comp-btn {
+      margin-left: 6px; font-size: 10px; font-weight: 600; padding: 2px 7px;
+      border-radius: 5px; border: 1px dashed var(--gray-200); background: var(--white);
+      cursor: pointer; color: var(--gray-400); font-family: inherit;
+      transition: all 0.15s; white-space: nowrap;
+    }
+    .comp-btn:hover { border-color: var(--blue); color: var(--blue); }
+    .comp-btn.active { background: var(--blue-bg); color: var(--blue); border-color: var(--blue-border); border-style: solid; }
+    .comp-price { color: var(--gray-400); text-decoration: line-through; }
+    .comp-zero { color: var(--blue); font-weight: 700; }
+
+    /* totals */
+    .bill-totals { padding: 14px 24px 18px; }
+    .tot-row {
+      display: flex; justify-content: space-between;
+      font-size: 12px; color: var(--gray-600); padding: 4px 0;
+    }
+    .tot-row.discount { color: var(--green); font-weight: 600; }
+    .tot-row.taxable { border-top: 1px solid var(--gray-100); padding-top: 9px; margin-top: 4px; font-weight: 600; color: var(--brown-dark); }
+    .tot-divider { height: 1px; background: var(--gray-200); margin: 10px 0; }
+    .tot-grand {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 18px; font-weight: 800; color: var(--brown-dark);
+      padding: 6px 0 0;
+    }
+    .gst-note { font-size: 11px; color: var(--gray-400); font-weight: 400; margin-top: 3px; }
+    .tax-rows { border-top: 1px solid var(--gray-100); padding-top: 8px; margin-top: 4px; }
+
+    /* paid stamp */
+    .paid-stamp {
+      display: none; position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%) rotate(-20deg);
+      font-size: 48px; font-weight: 900; color: rgba(46,139,87,0.18);
+      letter-spacing: 4px; pointer-events: none; z-index: 10;
+      border: 5px solid rgba(46,139,87,0.18); padding: 6px 14px;
+      border-radius: 6px; white-space: nowrap;
+    }
+    .paid-stamp.show { display: block; }
+
+    .voided-stamp {
+      display: none; position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%) rotate(-20deg);
+      font-size: 48px; font-weight: 900; color: rgba(220,38,38,0.18);
+      letter-spacing: 4px; pointer-events: none; z-index: 10;
+      border: 5px solid rgba(220,38,38,0.18); padding: 6px 14px;
+      border-radius: 6px; white-space: nowrap;
+    }
+    .voided-stamp.show { display: block; }
+
+    /* settled banner at bottom of bill */
+    .bill-settled-banner {
+      display: none; background: var(--green-bg);
+      border-top: 2px dashed var(--green-border);
+      padding: 12px 24px; text-align: center;
+    }
+    .bill-settled-banner.show { display: block; }
+    .bill-settled-banner .s-title { font-size: 15px; font-weight: 700; color: var(--green); }
+    .bill-settled-banner .s-sub { font-size: 12px; color: var(--gray-400); margin-top: 3px; }
+
+    /* ── PAYMENT PANEL (RIGHT) ── */
+    .pay-panel {
+      width: 340px; flex-shrink: 0;
+      border-left: 1px solid var(--gray-100);
+      background: var(--white);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .pay-panel-header {
+      padding: 14px 16px 12px; border-bottom: 1px solid var(--gray-100);
+      display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+    }
+    .pay-panel-icon {
+      width: 36px; height: 36px; border-radius: 9px;
+      display: flex; align-items: center; justify-content: center; font-size: 18px;
+    }
+    .pay-panel-title { font-size: 14px; font-weight: 700; color: var(--brown-dark); }
+    .pay-panel-sub { font-size: 11px; color: var(--gray-400); margin-top: 2px; }
+
+    .pay-body { flex: 1; overflow-y: auto; padding: 14px 15px; display: flex; flex-direction: column; gap: 14px; }
+
+    /* sections */
+    .pay-section { }
+    .pay-sec-label {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.7px; color: var(--gray-400); margin-bottom: 8px;
+    }
+
+    /* discount */
+    .disc-type-row { display: flex; gap: 6px; margin-bottom: 8px; }
+    .disc-type-btn {
+      flex: 1; padding: 7px 6px; border-radius: 7px;
+      border: 1px solid var(--gray-200); background: var(--gray-50);
+      font-size: 12px; font-weight: 600; color: var(--gray-400);
+      cursor: pointer; font-family: inherit; transition: all 0.15s;
+    }
+    .disc-type-btn.active { background: var(--green-bg); color: var(--green); border-color: var(--green-border); }
+    .disc-type-btn:hover:not(.active) { background: var(--gray-100); }
+    .disc-input-wrap {
+      display: none; flex-direction: column; gap: 6px;
+    }
+    .disc-input-wrap.show { display: flex; }
+    .disc-input-row { display: flex; align-items: center; gap: 8px; }
+    .disc-input {
+      flex: 1; padding: 8px 12px; border: 1px solid var(--gray-200);
+      border-radius: 8px; font-size: 14px; font-weight: 600; color: var(--brown-dark);
+      background: var(--gray-50); outline: none; font-family: inherit;
+    }
+    .disc-input:focus { border-color: var(--green); background: white; box-shadow: 0 0 0 3px rgba(46,139,87,0.1); }
+    .disc-unit { font-size: 13px; font-weight: 700; color: var(--gray-400); white-space: nowrap; }
+    .disc-preview {
+      display: none; font-size: 12px; color: var(--green); font-weight: 600;
+      background: var(--green-bg); border: 1px solid var(--green-border);
+      border-radius: 7px; padding: 6px 10px;
+    }
+    .disc-preview.show { display: block; }
+
+    /* payment mode tabs */
+    .pay-mode-tabs { display: flex; gap: 6px; }
+    .pay-mode-tab {
+      flex: 1; padding: 8px 6px; border-radius: 8px;
+      border: 1.5px solid var(--gray-200); background: var(--gray-50);
+      font-size: 12px; font-weight: 600; color: var(--gray-400);
+      cursor: pointer; font-family: inherit; text-align: center; transition: all 0.15s;
+    }
+    .pay-mode-tab.active { background: var(--brown-dark); color: white; border-color: var(--brown-dark); }
+    .pay-mode-tab:hover:not(.active) { border-color: var(--brown-mid); color: var(--brown-dark); }
+
+    /* mode panels */
+    .mode-content { display: none; flex-direction: column; gap: 10px; }
+    .mode-content.show { display: flex; }
+
+    /* UPI */
+    .upi-qr-box {
+      background: var(--gray-50); border: 2px dashed var(--gray-200);
+      border-radius: 12px; padding: 20px; text-align: center;
+    }
+    .upi-qr-grid {
+      display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px;
+      width: 120px; margin: 0 auto 12px; padding: 10px;
+      background: white; border-radius: 8px; border: 2px solid var(--brown-dark);
+    }
+    .upi-qr-grid span {
+      height: 14px; border-radius: 1px;
+    }
+    .upi-qr-amt { font-size: 22px; font-weight: 800; color: var(--brown-dark); }
+    .upi-qr-label { font-size: 12px; color: var(--gray-400); margin-top: 4px; }
+    .upi-vpa { font-size: 12px; font-weight: 600; color: var(--brown-mid); margin-top: 8px; }
+    .upi-apps { display: flex; justify-content: center; gap: 8px; margin-top: 10px; }
+    .upi-app-chip {
+      padding: 4px 10px; border-radius: 20px;
+      border: 1px solid var(--gray-200); background: white;
+      font-size: 11px; font-weight: 600; color: var(--gray-600);
+    }
+    .upi-confirm-note {
+      background: var(--amber-bg); border: 1px solid var(--amber-border);
+      border-radius: 8px; padding: 9px 12px; font-size: 12px; color: #92400E; line-height: 1.5;
+    }
+
+    /* Cash */
+    .cash-section { display: flex; flex-direction: column; gap: 8px; }
+    .field-label { font-size: 12px; font-weight: 600; color: var(--gray-600); margin-bottom: 3px; }
+    .cash-input {
+      width: 100%; padding: 10px 14px; border: 1.5px solid var(--gray-200);
+      border-radius: 9px; font-size: 18px; font-weight: 700; color: var(--brown-dark);
+      background: var(--gray-50); outline: none; font-family: inherit;
+    }
+    .cash-input:focus { border-color: var(--brown-mid); background: white; box-shadow: 0 0 0 3px rgba(124,74,30,0.1); }
+    .change-display {
+      background: var(--green-bg); border: 1px solid var(--green-border);
+      border-radius: 9px; padding: 12px 14px; display: none;
+    }
+    .change-display.show { display: block; }
+    .change-label { font-size: 11px; color: var(--gray-400); font-weight: 500; }
+    .change-amount { font-size: 22px; font-weight: 800; color: var(--green); margin-top: 2px; }
+    .change-exact {
+      background: var(--blue-bg); border: 1px solid var(--blue-border);
+      border-radius: 9px; padding: 10px 14px; font-size: 12px; color: var(--blue);
+      font-weight: 600; text-align: center;
+    }
+    .quick-cash { display: flex; flex-wrap: wrap; gap: 6px; }
+    .qc-btn {
+      padding: 5px 12px; border-radius: 20px;
+      border: 1px solid var(--gray-200); background: var(--gray-50);
+      font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit;
+      color: var(--brown-dark); transition: all 0.15s;
+    }
+    .qc-btn:hover { background: var(--cream); border-color: var(--brown-mid); }
+
+    /* Card */
+    .card-section { display: flex; flex-direction: column; gap: 8px; }
+    .card-note {
+      background: var(--amber-bg); border: 1px solid var(--amber-border);
+      border-radius: 8px; padding: 9px 12px; font-size: 12px; color: #92400E; line-height: 1.5;
+    }
+    .card-input {
+      width: 100%; padding: 10px 14px; border: 1.5px solid var(--gray-200);
+      border-radius: 9px; font-size: 18px; font-weight: 700; color: var(--brown-dark);
+      background: var(--gray-50); outline: none; font-family: inherit;
+    }
+    .card-input:focus { border-color: var(--brown-mid); background: white; box-shadow: 0 0 0 3px rgba(124,74,30,0.1); }
+
+    /* share section (settled state) */
+    .share-section { display: none; flex-direction: column; gap: 8px; }
+    .share-section.show { display: flex; }
+    .share-btn {
+      display: flex; align-items: center; gap: 10px; padding: 11px 14px;
+      border-radius: 10px; border: 1.5px solid var(--gray-200); background: var(--white);
+      cursor: pointer; font-size: 13px; font-weight: 600; color: var(--brown-dark);
+      font-family: inherit; transition: all 0.15s;
+    }
+    .share-btn.whatsapp { border-color: #25D366; background: #F0FDF4; color: #15803D; }
+    .share-btn.whatsapp:hover { background: #DCFCE7; }
+    .share-btn.sms { border-color: var(--blue-border); background: var(--blue-bg); color: var(--blue); }
+    .share-btn.sms:hover { background: #DBEAFE; }
+    .share-btn.print { border-color: var(--gray-200); }
+    .share-btn.print:hover { background: var(--gray-50); }
+    .share-icon { font-size: 20px; flex-shrink: 0; }
+    .share-info .share-title { font-size: 13px; font-weight: 700; }
+    .share-info .share-sub { font-size: 11px; opacity: 0.7; margin-top: 1px; }
+
+    /* settled status panel */
+    .settled-info {
+      display: none; background: var(--green-bg);
+      border: 1.5px solid var(--green-border); border-radius: 10px;
+      padding: 14px; text-align: center;
+    }
+    .settled-info.show { display: block; }
+    .settled-info .si-icon { font-size: 28px; margin-bottom: 6px; }
+    .settled-info .si-title { font-size: 15px; font-weight: 700; color: var(--green); }
+    .settled-info .si-sub { font-size: 12px; color: var(--gray-400); margin-top: 4px; line-height: 1.5; }
+
+    /* ── PAY FOOTER ── */
+    .pay-footer { border-top: 1px solid var(--gray-100); padding: 13px 15px; flex-shrink: 0; }
+    .settle-summary {
+      display: flex; justify-content: space-between; align-items: baseline;
+      margin-bottom: 10px;
+    }
+    .settle-label { font-size: 12px; color: var(--gray-400); font-weight: 500; }
+    .settle-amount { font-size: 20px; font-weight: 800; color: var(--brown-dark); }
+    .settle-gst-note { font-size: 11px; color: var(--gray-400); }
+    .btn-settle {
+      width: 100%; padding: 11px 14px; background: var(--green); color: white;
+      border: none; border-radius: 10px; font-size: 14px; font-weight: 700;
+      cursor: pointer; font-family: inherit; display: flex; align-items: center;
+      justify-content: center; gap: 8px; transition: background 0.15s;
+    }
+    .btn-settle:hover { background: #246b44; }
+    .btn-settle:disabled { background: var(--gray-200); color: var(--gray-400); cursor: default; }
+    .btn-void {
+      width: 100%; padding: 8px 14px; background: var(--white); color: var(--red);
+      border: 1px solid var(--red-border); border-radius: 10px; font-size: 12px;
+      font-weight: 600; cursor: pointer; font-family: inherit; margin-top: 7px;
+      transition: all 0.15s;
+    }
+    .btn-void:hover { background: var(--red-bg); }
+
+    /* ── MODALS ── */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(59,31,14,0.4); z-index: 400;
+      align-items: center; justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--white); border-radius: 16px; width: 440px;
+      max-width: 95vw; box-shadow: 0 20px 60px rgba(59,31,14,0.2); overflow: hidden;
+    }
+    .modal-header {
+      padding: 16px 18px 14px; border-bottom: 1px solid var(--gray-100);
+      display: flex; align-items: center; gap: 12px;
+    }
+    .modal-hicon {
+      width: 40px; height: 40px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;
+    }
+    .modal-title { font-size: 15px; font-weight: 700; color: var(--brown-dark); }
+    .modal-sub   { font-size: 12px; color: var(--gray-400); margin-top: 2px; }
+    .modal-close {
+      margin-left: auto; width: 30px; height: 30px; border-radius: 8px;
+      border: 1px solid var(--gray-200); background: white;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 14px; color: var(--gray-400);
+    }
+    .modal-body { padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+    .modal-footer {
+      padding: 13px 18px; border-top: 1px solid var(--gray-100);
+      display: flex; gap: 10px; justify-content: flex-end;
+    }
+    .mbtn-primary {
+      padding: 9px 20px; background: var(--brown-dark); color: white; border: none;
+      border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
+    }
+    .mbtn-danger {
+      padding: 9px 20px; background: var(--red); color: white; border: none;
+      border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
+    }
+    .mbtn-secondary {
+      padding: 9px 20px; background: white; color: var(--gray-600);
+      border: 1px solid var(--gray-200); border-radius: 8px; font-size: 13px;
+      font-weight: 600; cursor: pointer; font-family: inherit;
+    }
+    .field-group { display: flex; flex-direction: column; gap: 5px; }
+    .field-group label { font-size: 12px; font-weight: 600; color: var(--gray-600); }
+    .field-input {
+      width: 100%; padding: 9px 12px; border: 1.5px solid var(--gray-200);
+      border-radius: 8px; font-size: 13px; color: var(--brown-dark);
+      background: var(--gray-50); outline: none; font-family: inherit;
+    }
+    .field-input:focus { border-color: var(--brown-mid); background: white; box-shadow: 0 0 0 3px rgba(124,74,30,0.1); }
+    textarea.field-input { resize: vertical; min-height: 80px; }
+    .pin-row { display: flex; gap: 8px; }
+    .pin-dot {
+      width: 40px; height: 40px; border-radius: 8px;
+      border: 2px solid var(--gray-200); background: var(--gray-50);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; color: var(--brown-dark);
+    }
+    .pin-dot.filled { border-color: var(--brown-mid); background: var(--cream); }
+    .warn-box {
+      background: var(--red-bg); border: 1px solid var(--red-border);
+      border-radius: 8px; padding: 10px 12px; font-size: 12px; color: var(--red);
+      line-height: 1.5; font-weight: 500;
+    }
+
+    /* ── EOD SUMMARY ── */
+    .eod-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 4px; }
+    .eod-card {
+      background: var(--white); border: 1px solid var(--gray-100);
+      border-radius: 10px; padding: 14px;
+    }
+    .eod-card-label { font-size: 11px; font-weight: 600; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.5px; }
+    .eod-card-val { font-size: 22px; font-weight: 800; color: var(--brown-dark); margin-top: 4px; }
+    .eod-card-sub { font-size: 11px; color: var(--gray-400); margin-top: 2px; }
+    .eod-card.green .eod-card-val { color: var(--green); }
+    .eod-card.amber .eod-card-val { color: var(--amber); }
+    .eod-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .eod-table th { text-align: left; padding: 7px 10px; background: var(--gray-50); color: var(--gray-400); font-weight: 600; font-size: 11px; text-transform: uppercase; }
+    .eod-table td { padding: 8px 10px; border-top: 1px solid var(--gray-100); color: var(--brown-dark); font-weight: 500; }
+    .eod-table tr:last-child td { border-bottom: 1px solid var(--gray-100); }
+    .eod-export-row { display: flex; gap: 8px; margin-top: 4px; }
+    .eod-export-btn {
+      flex: 1; padding: 9px; border-radius: 8px; border: 1px solid var(--gray-200);
+      background: var(--white); font-size: 12px; font-weight: 600; color: var(--gray-600);
+      cursor: pointer; font-family: inherit; display: flex; align-items: center;
+      justify-content: center; gap: 5px; transition: all 0.15s;
+    }
+    .eod-export-btn:hover { background: var(--gray-50); border-color: var(--brown-mid); }
+  </style>
+</head>
+<body>
+
+<!-- ── DEMO BAR ── -->
+<div class="demo-bar">
+  <span class="demo-label">F-05 Billing:</span>
+  <button class="demo-tab active" onclick="show('preview')">Bill Preview (AC-05.2)</button>
+  <button class="demo-tab"        onclick="show('discount')">Discount (AC-05.6)</button>
+  <button class="demo-tab"        onclick="show('comp')">Comp Item (AC-05.7)</button>
+  <button class="demo-tab"        onclick="show('upi')">Pay · UPI (AC-05.3)</button>
+  <button class="demo-tab"        onclick="show('cash')">Pay · Cash (AC-05.3)</button>
+  <button class="demo-tab"        onclick="show('card')">Pay · Card (AC-05.3)</button>
+  <button class="demo-tab"        onclick="show('settled')">Settled ✓ (AC-05.4, 05.5)</button>
+  <button class="demo-tab"        onclick="show('void')">Void / Refund (AC-05.8)</button>
+  <button class="demo-tab"        onclick="show('eod')">End-of-Day (AC-05.9)</button>
+</div>
+
+<!-- ── SIDEBAR ── -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">☕</div>
+    <span class="logo-text">Cafe<span>OSum</span></span>
+  </div>
+  <nav>
+    <span class="nav-label">Main</span>
+    <div class="nav-item"><span class="nav-icon">⊞</span> Dashboard</div>
+    <div class="nav-item"><span class="nav-icon">☰</span> Menu</div>
+    <div class="nav-item active"><span class="nav-icon">🧾</span> Billing / POS</div>
+    <div class="nav-item"><span class="nav-icon">📋</span> Orders</div>
+    <span class="nav-label">Floor</span>
+    <div class="nav-item"><span class="nav-icon">🪑</span> Tables</div>
+    <span class="nav-label">Management</span>
+    <div class="nav-item"><span class="nav-icon">📦</span> Inventory</div>
+    <div class="nav-item"><span class="nav-icon">👷</span> Staff &amp; PINs</div>
+    <span class="nav-label">Insights</span>
+    <div class="nav-item"><span class="nav-icon">📈</span> Analytics</div>
+    <div class="nav-item"><span class="nav-icon">⚙</span> Settings</div>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="logout-btn"><span>↪</span> Logout</div>
+  </div>
+</aside>
+
+<!-- ── MAIN WRAPPER ── -->
+<div class="main-wrapper">
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div class="topbar-back" title="Back to Orders">←</div>
+    <span class="topbar-title">Billing / POS</span>
+    <div class="table-badge" id="table-badge">🧾 Table 2 · Ananya S. · #BILL-0048</div>
+    <div class="spacer"></div>
+    <div class="topbar-pill green" id="status-pill">🔓 Open</div>
+    <div class="user-chip">
+      <div class="user-avatar">RK</div>
+      <span class="user-name">Rajesh K.</span>
+    </div>
+  </header>
+
+  <!-- SPLIT CONTENT -->
+  <div class="split-area">
+
+    <!-- ── BILL PANEL (LEFT) ── -->
+    <div class="bill-panel">
+
+      <!-- Bill card -->
+      <div class="bill-card" id="bill-card">
+
+        <!-- PAID / VOIDED stamps -->
+        <div class="paid-stamp"   id="paid-stamp">PAID ✓</div>
+        <div class="voided-stamp" id="voided-stamp">VOIDED</div>
+
+        <!-- Cafe header (AC-05.2) -->
+        <div class="bill-cafe-header">
+          <div class="bill-cafe-logo">☕</div>
+          <div class="bill-cafe-name">Cafe<span>OSum</span></div>
+          <div class="bill-cafe-sub">
+            123 MG Road, Indore – 452001, Madhya Pradesh<br>
+            Tel: +91 98765 43210 · cafeOsum@gmail.com
+          </div>
+          <div class="bill-gstin">
+            <span>GSTIN</span>
+            <strong>23ABCDE1234F1Z5</strong>
+            <span style="font-size:10px;color:var(--green);">✓ Verified</span>
+          </div>
+        </div>
+
+        <!-- Bill metadata -->
+        <div class="bill-meta">
+          <div class="bill-meta-row"><span class="bill-meta-label">Bill #</span><span class="bill-meta-val">BILL-0048</span></div>
+          <div class="bill-meta-row"><span class="bill-meta-label">Date</span><span class="bill-meta-val">28 Jun 2026</span></div>
+          <div class="bill-meta-row"><span class="bill-meta-label">Time</span><span class="bill-meta-val">14:32</span></div>
+          <div class="bill-meta-row"><span class="bill-meta-label">Table</span><span class="bill-meta-val">Table 2</span></div>
+          <div class="bill-meta-row"><span class="bill-meta-label">Guest</span><span class="bill-meta-val">Ananya S. (2 pax)</span></div>
+          <div class="bill-meta-row"><span class="bill-meta-label">Cashier</span><span class="bill-meta-val">Rajesh K.</span></div>
+        </div>
+
+        <!-- Items table -->
+        <div class="bill-items">
+          <div class="bill-items-head">
+            <span>Item</span>
+            <span class="ta-r">Qty</span>
+            <span class="ta-r">Rate</span>
+            <span></span><!-- comp col -->
+            <span class="ta-r">Amount</span>
+          </div>
+          <div id="bill-items-body"></div>
+        </div>
+
+        <!-- Totals (AC-05.1) -->
+        <div class="bill-totals" id="bill-totals"></div>
+
+        <!-- Settled banner -->
+        <div class="bill-settled-banner" id="settled-banner">
+          <div class="s-title">✅ PAYMENT RECEIVED</div>
+          <div class="s-sub" id="settled-banner-sub">Settled via UPI · 28 Jun 2026, 14:38</div>
+        </div>
+
+      </div><!-- /bill-card -->
+
+      <!-- EOD panel (separate from bill card, hidden by default) -->
+      <div id="eod-section" style="display:none;">
+        <div style="font-size:15px;font-weight:700;color:var(--brown-dark);margin-bottom:12px;">
+          📊 End-of-Day Summary — 28 Jun 2026 <span style="font-size:12px;font-weight:500;color:var(--gray-400);">(AC-05.9)</span>
+        </div>
+        <div class="eod-grid">
+          <div class="eod-card green">
+            <div class="eod-card-label">Total Revenue</div>
+            <div class="eod-card-val">₹14,820</div>
+            <div class="eod-card-sub">↑ +12% vs yesterday</div>
+          </div>
+          <div class="eod-card">
+            <div class="eod-card-label">Bills Generated</div>
+            <div class="eod-card-val">34</div>
+            <div class="eod-card-sub">Avg ₹436/bill</div>
+          </div>
+          <div class="eod-card amber">
+            <div class="eod-card-label">GST Collected</div>
+            <div class="eod-card-val">₹706</div>
+            <div class="eod-card-sub">CGST ₹353 + SGST ₹353</div>
+          </div>
+          <div class="eod-card">
+            <div class="eod-card-label">Discounts Given</div>
+            <div class="eod-card-val">₹240</div>
+            <div class="eod-card-sub">Across 5 bills</div>
+          </div>
+        </div>
+        <div style="background:var(--white);border:1px solid var(--gray-100);border-radius:10px;overflow:hidden;margin-bottom:12px;">
+          <table class="eod-table">
+            <thead><tr><th>Payment Mode</th><th>Bills</th><th>Amount</th><th>%</th></tr></thead>
+            <tbody>
+              <tr><td>💳 UPI</td><td>18</td><td>₹8,640</td><td>58%</td></tr>
+              <tr><td>💵 Cash</td><td>12</td><td>₹4,920</td><td>33%</td></tr>
+              <tr><td>🏦 Card</td><td>4</td><td>₹1,260</td><td>9%</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="eod-export-row">
+          <button class="eod-export-btn">📄 Export PDF</button>
+          <button class="eod-export-btn">📊 Export CSV</button>
+          <button class="eod-export-btn">📱 WhatsApp Summary</button>
+        </div>
+      </div>
+
+    </div><!-- /bill-panel -->
+
+    <!-- ── PAYMENT PANEL (RIGHT) ── -->
+    <div class="pay-panel" id="pay-panel">
+
+      <div class="pay-panel-header">
+        <div class="pay-panel-icon" style="background:var(--green-bg);">💳</div>
+        <div>
+          <div class="pay-panel-title" id="pay-panel-title">Collect Payment</div>
+          <div class="pay-panel-sub" id="pay-panel-sub">Table 2 · #BILL-0048</div>
+        </div>
+      </div>
+
+      <div class="pay-body" id="pay-body">
+
+        <!-- Discount (AC-05.6) -->
+        <div class="pay-section" id="discount-section">
+          <div class="pay-sec-label">Discount (AC-05.6)</div>
+          <div class="disc-type-row">
+            <button class="disc-type-btn" id="disc-none" onclick="setDisc('none')">No Discount</button>
+            <button class="disc-type-btn" id="disc-flat" onclick="setDisc('flat')">₹ Flat</button>
+            <button class="disc-type-btn" id="disc-pct"  onclick="setDisc('pct')">% Off</button>
+          </div>
+          <div class="disc-input-wrap" id="disc-input-wrap">
+            <div class="disc-input-row">
+              <input type="number" class="disc-input" id="disc-val-input"
+                     placeholder="0" min="0"
+                     oninput="updateDisc(this.value)" />
+              <span class="disc-unit" id="disc-unit-label">₹</span>
+            </div>
+            <div class="disc-preview" id="disc-preview"></div>
+          </div>
+        </div>
+
+        <!-- Payment mode (AC-05.3) -->
+        <div class="pay-section" id="payment-mode-section">
+          <div class="pay-sec-label">Payment Mode (AC-05.3)</div>
+          <div class="pay-mode-tabs">
+            <button class="pay-mode-tab" id="tab-upi"  onclick="setPayMode('upi')">💳 UPI</button>
+            <button class="pay-mode-tab" id="tab-cash" onclick="setPayMode('cash')">💵 Cash</button>
+            <button class="pay-mode-tab" id="tab-card" onclick="setPayMode('card')">🏦 Card</button>
+          </div>
+
+          <!-- UPI mode -->
+          <div class="mode-content" id="mode-upi">
+            <div class="upi-qr-box">
+              <div class="upi-qr-grid" id="qr-grid"></div>
+              <div class="upi-qr-amt" id="upi-amount">₹0.00</div>
+              <div class="upi-qr-label">Scan QR to pay via any UPI app</div>
+              <div class="upi-vpa">📲 UPI: cafeOsum@upi</div>
+              <div class="upi-apps">
+                <span class="upi-app-chip">GPay</span>
+                <span class="upi-app-chip">PhonePe</span>
+                <span class="upi-app-chip">BHIM</span>
+                <span class="upi-app-chip">Paytm</span>
+              </div>
+            </div>
+            <div class="upi-confirm-note">
+              ⚠️ <strong>Confirm before settling:</strong> Verify payment received in your UPI app or bank before tapping "Settle Bill" below. (AC-05.4)
+            </div>
+          </div>
+
+          <!-- Cash mode -->
+          <div class="mode-content" id="mode-cash">
+            <div class="cash-section">
+              <div class="field-label">Grand Total due</div>
+              <div style="font-size:22px;font-weight:800;color:var(--brown-dark);padding:4px 0;" id="cash-due">₹0.00</div>
+              <div class="field-label">Cash Received (₹)</div>
+              <input type="number" class="cash-input" id="cash-input" placeholder="₹ 0"
+                     oninput="calcChange(this.value)" />
+              <div class="field-label">Quick amounts</div>
+              <div class="quick-cash" id="quick-cash"></div>
+              <div class="change-display" id="change-display">
+                <div class="change-label">Return Change to Customer</div>
+                <div class="change-amount" id="change-amt">₹0</div>
+              </div>
+              <div class="change-exact" id="exact-display" style="display:none;">
+                ✅ Exact amount — no change needed
+              </div>
+            </div>
+          </div>
+
+          <!-- Card mode -->
+          <div class="mode-content" id="mode-card">
+            <div class="card-section">
+              <div class="card-note">
+                💳 <strong>No card processing in v1</strong> — Swipe/tap the customer's card on your physical POS terminal, then enter the amount collected here to record the transaction. (AC-05.3)
+              </div>
+              <div class="field-label">Amount collected via card (₹)</div>
+              <input type="number" class="card-input" id="card-input" placeholder="₹ 0" />
+              <div style="background:var(--gray-50);border:1px solid var(--gray-100);border-radius:8px;padding:9px 12px;font-size:12px;color:var(--gray-600);">
+                Grand Total: <strong id="card-due" style="color:var(--brown-dark);">₹0.00</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Settled state -->
+        <div class="settled-info" id="settled-info">
+          <div class="si-icon">✅</div>
+          <div class="si-title" id="settled-title">Bill Settled via UPI</div>
+          <div class="si-sub">28 Jun 2026, 14:38 · Rajesh K.<br>Table 2 is now free</div>
+        </div>
+        <div class="share-section" id="share-section">
+          <div class="pay-sec-label">Share Receipt (AC-05.5)</div>
+          <button class="share-btn whatsapp">
+            <span class="share-icon">💬</span>
+            <div class="share-info">
+              <div class="share-title">Send via WhatsApp</div>
+              <div class="share-sub">Opens WhatsApp with bill text + PDF link</div>
+            </div>
+          </button>
+          <button class="share-btn sms">
+            <span class="share-icon">📱</span>
+            <div class="share-info">
+              <div class="share-title">Send via SMS</div>
+              <div class="share-sub">Plain-text receipt to customer's number</div>
+            </div>
+          </button>
+          <button class="share-btn print">
+            <span class="share-icon">🖨️</span>
+            <div class="share-info">
+              <div class="share-title">Print Bill</div>
+              <div class="share-sub">ESC/POS thermal printer or PDF</div>
+            </div>
+          </button>
+        </div>
+
+      </div><!-- /pay-body -->
+
+      <!-- Footer -->
+      <div class="pay-footer">
+        <div class="settle-summary">
+          <div>
+            <div class="settle-label">Grand Total</div>
+            <div class="settle-gst-note" id="settle-gst-note">incl. GST</div>
+          </div>
+          <div class="settle-amount" id="settle-amount">₹0.00</div>
+        </div>
+        <button class="btn-settle" id="btn-settle" onclick="settleModal()">✅ Settle Bill (AC-05.4)</button>
+        <button class="btn-void"   id="btn-void"   onclick="openModal('modal-void')">🚫 Void / Refund (AC-05.8)</button>
+      </div>
+
+    </div><!-- /pay-panel -->
+
+  </div><!-- /split-area -->
+</div><!-- /main-wrapper -->
+
+
+<!-- ══ MODAL: Void / Refund (AC-05.8) ══ -->
+<div class="modal-overlay" id="modal-void">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-hicon" style="background:var(--red-bg);">🚫</div>
+      <div>
+        <div class="modal-title">Void / Refund Bill</div>
+        <div class="modal-sub">BILL-0048 · Table 2 · ₹<span id="void-amount"></span></div>
+      </div>
+      <div class="modal-close" onclick="closeModal('modal-void')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div class="warn-box">
+        ⚠️ This action requires <strong>Owner authentication</strong>. Voided bills are retained in history and cannot be deleted. A reason is mandatory. (AC-05.8)
+      </div>
+      <div class="field-group">
+        <label>Owner PIN (AC-05.8 — owner auth required)</label>
+        <div class="pin-row" id="pin-row">
+          <div class="pin-dot" id="pin-0">●</div>
+          <div class="pin-dot" id="pin-1">●</div>
+          <div class="pin-dot" id="pin-2">●</div>
+          <div class="pin-dot" id="pin-3">●</div>
+        </div>
+        <input type="password" class="field-input" id="pin-input"
+               placeholder="Enter 4-digit owner PIN" maxlength="4"
+               oninput="updatePinDots(this.value)" />
+      </div>
+      <div class="field-group">
+        <label>Reason for void (mandatory)</label>
+        <textarea class="field-input" id="void-reason"
+                  placeholder="e.g. Customer changed mind, wrong item entered, duplicate bill…"></textarea>
+      </div>
+      <div style="font-size:11px;color:var(--gray-400);background:var(--gray-50);border:1px solid var(--gray-100);border-radius:7px;padding:8px 10px;line-height:1.6;">
+        📋 This void will be logged to the Audit Trail (F-09) with: acting user, timestamp, reason, and full original bill payload.
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="mbtn-secondary" onclick="closeModal('modal-void')">Cancel</button>
+      <button class="mbtn-danger" onclick="confirmVoid()">🚫 Confirm Void</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: Settle Confirm ══ -->
+<div class="modal-overlay" id="modal-settle">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-hicon" style="background:var(--green-bg);">✅</div>
+      <div>
+        <div class="modal-title">Confirm Payment Received?</div>
+        <div class="modal-sub" id="settle-confirm-sub">Settling via UPI — make sure payment is confirmed in your app.</div>
+      </div>
+      <div class="modal-close" onclick="closeModal('modal-settle')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div style="background:var(--green-bg);border:1.5px solid var(--green-border);border-radius:10px;padding:16px;text-align:center;">
+        <div style="font-size:28px;font-weight:800;color:var(--brown-dark);" id="settle-modal-amt">₹0.00</div>
+        <div style="font-size:12px;color:var(--gray-400);margin-top:4px;">Total amount to collect</div>
+      </div>
+      <div style="font-size:12px;color:var(--gray-600);line-height:1.7;">
+        Once confirmed, the bill will be marked as <strong>Settled</strong> and Table 2 will be freed for the next order. This action cannot be undone.
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="mbtn-secondary" onclick="closeModal('modal-settle')">Go Back</button>
+      <button class="mbtn-primary" style="background:var(--green);" onclick="confirmSettle()">✅ Yes, Payment Received</button>
+    </div>
+  </div>
+</div>
+
+
+<script>
+/* ─── DATA ─── */
+const BILL_ITEMS = [
+  { id:1,  name:'Masala Chai',      price:60,  qty:2, emoji:'☕' },
+  { id:4,  name:'Cappuccino',       price:120, qty:1, emoji:'☕' },
+  { id:13, name:'Blueberry Muffin', price:120, qty:1, emoji:'🧁' },
+  { id:10, name:'Vada Pav',         price:40,  qty:2, emoji:'🍔' },
+];
+// Raw subtotal = 120 + 120 + 120 + 80 = 440
+
+const GST_RATE = 0.05;
+
+let compSet   = new Set();   // ids of comp items
+let discType  = 'none';      // 'none' | 'flat' | 'pct'
+let discVal   = 0;
+let payMode   = 'upi';
+let isSettled = false;
+let isVoided  = false;
+
+/* ─── CALCULATIONS ─── */
+function calcTotals() {
+  const subtotal = BILL_ITEMS.reduce((s, i) => {
+    if (compSet.has(i.id)) return s;
+    return s + i.price * i.qty;
+  }, 0);
+
+  let disc = 0;
+  if (discType === 'flat')  disc = Math.min(discVal, subtotal);
+  if (discType === 'pct')   disc = subtotal * (discVal / 100);
+  disc = Math.round(disc * 100) / 100;
+
+  const taxable = subtotal - disc;
+  const gst     = Math.round(taxable * GST_RATE * 100) / 100;
+  const cgst    = gst / 2;
+  const sgst    = gst / 2;
+  const grand   = taxable + gst;
+  return { subtotal, disc, taxable, cgst, sgst, gst, grand };
+}
+
+function fmt(n) { return '₹' + n.toFixed(2); }
+
+/* ─── RENDER BILL ITEMS ─── */
+function renderBillItems() {
+  const body = document.getElementById('bill-items-body');
+  body.innerHTML = BILL_ITEMS.map(item => {
+    const isComp  = compSet.has(item.id);
+    const lineAmt = item.price * item.qty;
+    return `
+      <div class="bill-item-row">
+        <div class="item-name-cell">
+          <span class="item-emoji-sm">${item.emoji}</span>
+          <span class="item-name-text">${item.name}</span>
+          <span class="comp-badge ${isComp ? 'show' : ''}">COMP</span>
+        </div>
+        <div class="ta-r" style="color:var(--gray-600);">×${item.qty}</div>
+        <div class="ta-r" style="color:var(--gray-600);">${fmt(item.price)}</div>
+        <div>
+          ${!isSettled && !isVoided ? `
+            <button class="comp-btn ${isComp ? 'active' : ''}"
+              onclick="toggleComp(${item.id})"
+              title="Mark as complimentary — ₹0 on bill, excluded from revenue (AC-05.7)">
+              ${isComp ? '★ Comp' : 'Comp'}
+            </button>` : ''}
+        </div>
+        <div class="ta-r" style="font-weight:600;">
+          ${isComp
+            ? `<span class="comp-price">${fmt(lineAmt)}</span> <span class="comp-zero">₹0</span>`
+            : fmt(lineAmt)}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+/* ─── RENDER TOTALS ─── */
+function renderTotals() {
+  const t = calcTotals();
+  const el = document.getElementById('bill-totals');
+  let html = `<div class="tot-row"><span>Subtotal</span><span>${fmt(t.subtotal)}</span></div>`;
+
+  if (t.disc > 0) {
+    const discLabel = discType === 'flat'
+      ? `Discount (−₹${discVal})`
+      : `Discount (${discVal}%)`;
+    html += `<div class="tot-row discount"><span>${discLabel}</span><span>−${fmt(t.disc)}</span></div>`;
+    html += `<div class="tot-row taxable"><span>Taxable Amount</span><span>${fmt(t.taxable)}</span></div>`;
+  }
+
+  html += `
+    <div class="tax-rows">
+      <div class="tot-row"><span>CGST @ 2.5%</span><span>${fmt(t.cgst)}</span></div>
+      <div class="tot-row"><span>SGST @ 2.5%</span><span>${fmt(t.sgst)}</span></div>
+    </div>
+    <div class="tot-divider"></div>
+    <div class="tot-grand">
+      <div>
+        <div>Grand Total</div>
+        <div class="gst-note">incl. GST ${fmt(t.gst)}</div>
+      </div>
+      <div>${fmt(t.grand)}</div>
+    </div>`;
+  el.innerHTML = html;
+}
+
+/* ─── RENDER PAY FOOTER AMOUNTS ─── */
+function renderPayAmounts() {
+  const t = calcTotals();
+  document.getElementById('settle-amount').textContent = fmt(t.grand);
+  document.getElementById('settle-gst-note').textContent = `incl. GST ${fmt(t.gst)}`;
+  document.getElementById('upi-amount').textContent    = fmt(t.grand);
+  document.getElementById('cash-due').textContent      = fmt(t.grand);
+  document.getElementById('card-due').textContent      = fmt(t.grand);
+  document.getElementById('settle-modal-amt').textContent = fmt(t.grand);
+  document.getElementById('void-amount').textContent   = t.grand.toFixed(2);
+
+  // Quick cash buttons
+  const qc = document.getElementById('quick-cash');
+  if (qc) {
+    const g = t.grand;
+    const rounds = [
+      Math.ceil(g / 10) * 10,
+      Math.ceil(g / 50) * 50,
+      Math.ceil(g / 100) * 100,
+      Math.ceil(g / 500) * 500,
+    ].filter((v, i, a) => a.indexOf(v) === i && v >= g).slice(0, 4);
+    qc.innerHTML = rounds.map(v =>
+      `<button class="qc-btn" onclick="quickCash(${v})">₹${v}</button>`
+    ).join('');
+  }
+}
+
+/* ─── COMP TOGGLE ─── */
+function toggleComp(id) {
+  if (compSet.has(id)) compSet.delete(id);
+  else compSet.add(id);
+  renderBillItems();
+  renderTotals();
+  renderPayAmounts();
+}
+
+/* ─── DISCOUNT ─── */
+function setDisc(type) {
+  discType = type;
+  discVal  = 0;
+  document.querySelectorAll('.disc-type-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`disc-${type}`).classList.add('active');
+
+  const wrap    = document.getElementById('disc-input-wrap');
+  const unit    = document.getElementById('disc-unit-label');
+  const input   = document.getElementById('disc-val-input');
+  const preview = document.getElementById('disc-preview');
+
+  if (type === 'none') {
+    wrap.classList.remove('show');
+    preview.classList.remove('show');
+  } else {
+    wrap.classList.add('show');
+    unit.textContent = type === 'flat' ? '₹' : '%';
+    input.value = '';
+    input.placeholder = type === 'flat' ? 'e.g. 50' : 'e.g. 10';
+    preview.classList.remove('show');
+  }
+  renderTotals();
+  renderPayAmounts();
+}
+
+function updateDisc(val) {
+  discVal = parseFloat(val) || 0;
+  const t  = calcTotals();
+  const pr = document.getElementById('disc-preview');
+  if (discVal > 0) {
+    pr.classList.add('show');
+    pr.textContent = `Discount: −${fmt(t.disc)} · Grand Total: ${fmt(t.grand)}`;
+  } else {
+    pr.classList.remove('show');
+  }
+  renderTotals();
+  renderPayAmounts();
+}
+
+/* ─── PAYMENT MODE ─── */
+function setPayMode(mode) {
+  payMode = mode;
+  ['upi','cash','card'].forEach(m => {
+    document.getElementById(`tab-${m}`).classList.toggle('active', m === mode);
+    document.getElementById(`mode-${m}`).classList.toggle('show', m === mode);
+  });
+}
+
+/* ─── CASH CHANGE ─── */
+function calcChange(val) {
+  const received = parseFloat(val) || 0;
+  const t = calcTotals();
+  const change = received - t.grand;
+  const cd = document.getElementById('change-display');
+  const ex = document.getElementById('exact-display');
+  if (received >= t.grand) {
+    if (change < 0.01) {
+      cd.classList.remove('show');
+      ex.style.display = 'block';
+    } else {
+      ex.style.display = 'none';
+      cd.classList.add('show');
+      document.getElementById('change-amt').textContent = fmt(change);
+    }
+  } else {
+    cd.classList.remove('show');
+    ex.style.display = 'none';
+  }
+}
+
+function quickCash(val) {
+  document.getElementById('cash-input').value = val;
+  calcChange(val);
+}
+
+/* ─── SETTLE ─── */
+function settleModal() {
+  const modeLabels = { upi:'UPI', cash:'Cash', card:'Card' };
+  document.getElementById('settle-confirm-sub').textContent =
+    `Settling via ${modeLabels[payMode]} — confirm payment before proceeding.`;
+  openModal('modal-settle');
+}
+
+function confirmSettle() {
+  closeModal('modal-settle');
+  isSettled = true;
+  const modeLabels = { upi:'UPI', cash:'Cash', card:'Card' };
+
+  // Update topbar
+  document.getElementById('status-pill').className = 'topbar-pill green';
+  document.getElementById('status-pill').textContent = '✅ Settled';
+
+  // Show paid stamp + settled banner
+  document.getElementById('paid-stamp').classList.add('show');
+  document.getElementById('settled-banner').classList.add('show');
+  document.getElementById('settled-banner-sub').textContent =
+    `Settled via ${modeLabels[payMode]} · 28 Jun 2026, 14:38`;
+
+  // Right panel
+  document.getElementById('pay-panel-title').textContent = 'Payment Settled';
+  document.getElementById('pay-panel-icon').textContent = '✅';
+  document.getElementById('pay-panel-icon').style.background = 'var(--green-bg)';
+  document.getElementById('settled-info').classList.add('show');
+  document.getElementById('settled-title').textContent = `Bill Settled via ${modeLabels[payMode]}`;
+  document.getElementById('share-section').classList.add('show');
+  document.getElementById('discount-section').style.display = 'none';
+  document.getElementById('payment-mode-section').style.display = 'none';
+  document.getElementById('btn-settle').disabled = true;
+  document.getElementById('btn-settle').textContent = '✅ Bill Settled';
+  document.getElementById('btn-void').style.display = 'block';
+
+  renderBillItems(); // remove comp buttons
+}
+
+/* ─── VOID ─── */
+function updatePinDots(val) {
+  for (let i = 0; i < 4; i++) {
+    const dot = document.getElementById(`pin-${i}`);
+    dot.classList.toggle('filled', i < val.length);
+    dot.textContent = i < val.length ? '●' : '●';
+  }
+}
+
+function confirmVoid() {
+  const pin    = document.getElementById('pin-input').value;
+  const reason = document.getElementById('void-reason').value.trim();
+  if (pin.length < 4) { alert('Please enter your 4-digit owner PIN.'); return; }
+  if (!reason)         { alert('Please enter a reason for void.'); return; }
+  closeModal('modal-void');
+  isVoided = true;
+
+  document.getElementById('status-pill').className = 'topbar-pill red';
+  document.getElementById('status-pill').textContent = '🚫 Voided';
+  document.getElementById('voided-stamp').classList.add('show');
+  document.getElementById('btn-settle').disabled = true;
+  document.getElementById('btn-settle').textContent = '🚫 Bill Voided';
+  document.getElementById('btn-void').style.display = 'none';
+  document.getElementById('discount-section').style.display = 'none';
+  document.getElementById('payment-mode-section').style.display = 'none';
+  document.getElementById('pay-panel-title').textContent = 'Bill Voided';
+  document.getElementById('pay-panel-icon').textContent = '🚫';
+  document.getElementById('pay-panel-icon').style.background = 'var(--red-bg)';
+  const info = document.getElementById('settled-info');
+  info.classList.add('show');
+  info.style.background = 'var(--red-bg)';
+  info.style.borderColor = 'var(--red-border)';
+  document.getElementById('settled-title').style.color = 'var(--red)';
+  document.getElementById('settled-title').textContent = '🚫 Bill Voided';
+  info.querySelector('.si-sub').textContent = `Reason: "${reason}" · 28 Jun 2026, 14:40`;
+
+  renderBillItems();
+}
+
+/* ─── QR CODE GENERATOR (pixel art) ─── */
+function buildQR() {
+  const grid = document.getElementById('qr-grid');
+  if (!grid) return;
+  const pattern = [
+    1,1,1,0,0,1,1,
+    1,0,1,1,0,1,0,
+    1,0,1,0,1,0,1,
+    0,1,0,1,1,1,0,
+    1,0,1,0,1,0,1,
+    1,1,0,1,0,0,1,
+    1,1,1,0,1,1,0,
+    0,0,1,1,0,1,1,
+    1,0,0,1,1,0,1,
+    1,1,0,0,0,1,0,
+    0,1,1,1,0,0,1,
+    1,0,1,0,1,1,0,
+    1,1,0,1,0,0,1,
+    0,1,1,0,1,0,0,
+    1,0,0,1,1,1,1,
+    1,1,1,1,0,0,0,
+    0,0,1,0,1,0,1,
+    1,0,0,1,0,1,0,
+    0,1,1,0,1,1,1,
+    1,0,1,1,0,0,1,
+    0,1,0,0,1,0,0,
+    1,1,0,1,0,1,1,
+    1,0,1,0,0,1,0,
+    0,1,1,1,0,0,1,
+    1,0,0,0,1,1,0,
+    0,1,1,0,0,1,1,
+    1,1,0,1,1,0,0,
+    0,0,1,0,1,0,1,
+    1,0,1,1,0,1,0,
+    1,1,0,0,1,1,1,
+    0,1,0,1,0,0,1,
+    1,0,1,0,1,1,0,
+    0,1,1,1,0,0,0,
+    1,1,0,0,1,0,1,
+    0,0,1,1,0,1,0,
+    1,0,0,0,1,0,1,
+    1,1,1,0,0,1,1,
+    0,1,0,1,1,0,0,
+    1,0,1,0,0,1,1,
+    1,1,0,1,0,1,0,
+    0,0,1,0,1,0,1,
+    1,0,0,1,1,1,0,
+    0,1,1,0,0,0,1,
+    1,1,0,1,0,1,0,
+    0,0,1,1,1,0,1,
+    1,0,0,0,0,1,1,
+    1,1,1,0,1,0,0,
+    0,1,0,1,0,1,1,
+    1,0,1,1,1,0,0,
+  ];
+  grid.innerHTML = pattern.map(v =>
+    `<span style="background:${v ? '#3B1F0E' : 'transparent'};"></span>`
+  ).join('');
+}
+
+/* ─── DEMO STATE CONTROLLER ─── */
+function show(state) {
+  // Reset all state
+  compSet   = new Set();
+  discType  = 'none';
+  discVal   = 0;
+  payMode   = 'upi';
+  isSettled = false;
+  isVoided  = false;
+
+  // Reset UI
+  document.getElementById('paid-stamp').classList.remove('show');
+  document.getElementById('voided-stamp').classList.remove('show');
+  document.getElementById('settled-banner').classList.remove('show');
+  document.getElementById('settled-info').classList.remove('show');
+  document.getElementById('settled-info').style.background = '';
+  document.getElementById('settled-info').style.borderColor = '';
+  document.getElementById('settled-title').style.color = '';
+  document.getElementById('settled-title').textContent = 'Bill Settled via UPI';
+  document.getElementById('settled-info').querySelector('.si-sub').textContent = '28 Jun 2026, 14:38 · Rajesh K.\nTable 2 is now free';
+  document.getElementById('share-section').classList.remove('show');
+  document.getElementById('discount-section').style.display = '';
+  document.getElementById('payment-mode-section').style.display = '';
+  document.getElementById('status-pill').className = 'topbar-pill green';
+  document.getElementById('status-pill').textContent = '🔓 Open';
+  document.getElementById('btn-settle').disabled = false;
+  document.getElementById('btn-settle').textContent = '✅ Settle Bill (AC-05.4)';
+  document.getElementById('btn-void').style.display = 'block';
+  document.getElementById('pay-panel-title').textContent = 'Collect Payment';
+  document.getElementById('pay-panel-icon').textContent = '💳';
+  document.getElementById('pay-panel-icon').style.background = 'var(--green-bg)';
+  document.getElementById('eod-section').style.display = 'none';
+  document.getElementById('bill-card').style.display = '';
+
+  // Reset discount UI
+  setDisc('none');
+  document.getElementById('disc-val-input').value = '';
+
+  // Reset cash
+  const ci = document.getElementById('cash-input');
+  if (ci) ci.value = '';
+  const cd = document.getElementById('change-display');
+  if (cd) cd.classList.remove('show');
+  const ex = document.getElementById('exact-display');
+  if (ex) ex.style.display = 'none';
+
+  // Reset pin
+  document.getElementById('pin-input').value = '';
+  document.getElementById('void-reason').value = '';
+  updatePinDots('');
+
+  // Demo tab highlight
+  document.querySelectorAll('.demo-tab').forEach(t => t.classList.remove('active'));
+  const STATES = ['preview','discount','comp','upi','cash','card','settled','void','eod'];
+  const idx = STATES.indexOf(state);
+  document.querySelectorAll('.demo-tab')[idx]?.classList.add('active');
+
+  switch (state) {
+    case 'preview':
+      setPayMode('upi');
+      break;
+
+    case 'discount':
+      setDisc('pct');
+      document.getElementById('disc-val-input').value = '10';
+      discVal = 10;
+      updateDisc(10);
+      setPayMode('upi');
+      break;
+
+    case 'comp':
+      compSet.add(1); // Masala Chai as comp
+      setPayMode('upi');
+      break;
+
+    case 'upi':
+      setPayMode('upi');
+      break;
+
+    case 'cash':
+      setPayMode('cash');
+      break;
+
+    case 'card':
+      setPayMode('card');
+      break;
+
+    case 'settled':
+      setPayMode('upi');
+      renderBillItems();
+      renderTotals();
+      renderPayAmounts();
+      // trigger settled flow inline
+      isSettled = true;
+      document.getElementById('status-pill').className = 'topbar-pill green';
+      document.getElementById('status-pill').textContent = '✅ Settled';
+      document.getElementById('paid-stamp').classList.add('show');
+      document.getElementById('settled-banner').classList.add('show');
+      document.getElementById('pay-panel-title').textContent = 'Payment Settled';
+      document.getElementById('pay-panel-icon').textContent = '✅';
+      document.getElementById('settled-info').classList.add('show');
+      document.getElementById('share-section').classList.add('show');
+      document.getElementById('discount-section').style.display = 'none';
+      document.getElementById('payment-mode-section').style.display = 'none';
+      document.getElementById('btn-settle').disabled = true;
+      document.getElementById('btn-settle').textContent = '✅ Bill Settled';
+      renderBillItems();
+      return;
+
+    case 'void':
+      openModal('modal-void');
+      break;
+
+    case 'eod':
+      document.getElementById('bill-card').style.display = 'none';
+      document.getElementById('eod-section').style.display = 'block';
+      document.getElementById('discount-section').style.display = 'none';
+      document.getElementById('payment-mode-section').style.display = 'none';
+      document.getElementById('btn-settle').disabled = true;
+      document.getElementById('btn-settle').textContent = 'End of Day — No Open Bill';
+      document.getElementById('btn-void').style.display = 'none';
+      document.getElementById('pay-panel-title').textContent = 'Day Summary';
+      renderBillItems();
+      renderTotals();
+      renderPayAmounts();
+      return;
+  }
+
+  renderBillItems();
+  renderTotals();
+  renderPayAmounts();
+}
+
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+/* ─── INIT ─── */
+buildQR();
+show('preview');
+</script>
+
+</body>
+</html>

@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CafeOSum — Language Toggle (F-10)</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --brown-dark:  #3B1F0E; --brown-mid: #7C4A1E; --gold: #D4A017; --gold-light: #F0C040;
+      --cream: #FDF8F2; --white: #FFFFFF; --gray-50: #F9F5F0; --gray-100: #F0EBE3;
+      --gray-200: #DDD5C8; --gray-400: #9E8E7E; --gray-600: #6B5B4E;
+      --green: #2E8B57; --green-bg: #E8F5EE; --green-border: #86EFAC;
+      --amber: #D97706; --amber-bg: #FEF3C7; --amber-border: #FDE68A;
+      --red: #DC2626; --red-bg: #FEE2E2;
+      --blue: #2563EB; --blue-bg: #EFF6FF; --blue-border: #BFDBFE;
+      --purple: #7C3AED; --purple-bg: #F5F3FF; --purple-border: #DDD6FE;
+      --sidebar-w: 240px; --header-h: 56px;
+    }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--gray-50); color: var(--brown-dark); padding-top: 36px; height: 100vh; overflow: hidden; }
+
+    /* DEMO BAR */
+    .demo-bar { position: fixed; top: 0; left: 0; right: 0; z-index: 300; background: var(--brown-dark); padding: 6px 16px; display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+    .demo-label { font-size: 11px; font-weight: 700; color: var(--gold-light); margin-right: 4px; white-space: nowrap; }
+    .demo-tab { padding: 3px 10px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.6); cursor: pointer; font-size: 11px; font-weight: 500; font-family: inherit; background: transparent; transition: all 0.15s; white-space: nowrap; }
+    .demo-tab:hover { background: rgba(255,255,255,0.1); color: white; }
+    .demo-tab.active { background: var(--gold); color: var(--brown-dark); border-color: var(--gold); font-weight: 700; }
+
+    /* SIDEBAR */
+    .sidebar { width: var(--sidebar-w); background: var(--white); border-right: 1px solid var(--gray-100); position: fixed; top: 36px; left: 0; bottom: 0; display: flex; flex-direction: column; z-index: 200; }
+    .sidebar-logo { padding: 16px 20px; border-bottom: 1px solid var(--gray-100); display: flex; align-items: center; gap: 10px; }
+    .logo-icon { width: 34px; height: 34px; background: var(--brown-dark); border-radius: 9px; display: flex; align-items: center; justify-content: center; color: var(--gold-light); font-size: 17px; }
+    .logo-text { font-size: 16px; font-weight: 700; color: var(--brown-dark); }
+    .logo-text span { color: var(--gold); }
+    nav { flex: 1; padding: 14px 12px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
+    .nav-label { font-size: 10px; font-weight: 600; color: var(--gray-400); letter-spacing: 0.8px; text-transform: uppercase; padding: 10px 8px 4px; }
+    .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--gray-600); transition: background 0.15s, color 0.15s; }
+    .nav-item:hover { background: var(--gray-50); color: var(--brown-dark); }
+    .nav-item.active { background: var(--cream); color: var(--brown-dark); font-weight: 600; }
+    .nav-icon { font-size: 15px; width: 20px; text-align: center; }
+    .sidebar-footer { padding: 12px; border-top: 1px solid var(--gray-100); }
+    .logout-btn { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--red); background: var(--red-bg); }
+
+    /* MAIN */
+    .main-wrapper { margin-left: var(--sidebar-w); height: calc(100vh - 36px); display: flex; flex-direction: column; overflow: hidden; }
+
+    /* TOPBAR */
+    .topbar { height: var(--header-h); background: var(--white); border-bottom: 1px solid var(--gray-100); display: flex; align-items: center; padding: 0 18px; gap: 10px; flex-shrink: 0; }
+    .topbar-back { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--gray-200); background: var(--gray-50); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 14px; color: var(--gray-600); flex-shrink: 0; }
+    .topbar-title { font-size: 18px; font-weight: 700; color: var(--brown-dark); white-space: nowrap; }
+    .ctx-badge { display: flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+    .ctx-badge.amber { background: var(--amber-bg); border: 1px solid var(--amber-border); color: var(--amber); }
+    .ctx-badge.blue  { background: var(--blue-bg);  border: 1px solid var(--blue-border);  color: var(--blue); }
+    .lang-toggle { display: flex; border: 1.5px solid var(--gray-200); border-radius: 8px; overflow: hidden; }
+    .lang-btn { padding: 5px 12px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; border: none; background: var(--gray-50); color: var(--gray-400); transition: all 0.15s; }
+    .lang-btn.hi-on { background: var(--brown-dark); color: white; }
+    .lang-btn.en-on { background: var(--brown-dark); color: white; }
+    .sync-pill { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--green); background: var(--green-bg); border: 1px solid var(--green-border); padding: 4px 10px; border-radius: 20px; font-weight: 500; white-space: nowrap; }
+    .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; flex-shrink: 0; }
+    @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+    .spacer { flex: 1; }
+    .btn-primary { padding: 7px 14px; background: var(--brown-dark); color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+    .btn-secondary { padding: 7px 14px; background: var(--white); color: var(--gray-600); border: 1px solid var(--gray-200); border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+    .user-chip { display: flex; align-items: center; gap: 8px; padding: 4px 10px 4px 4px; border-radius: 20px; background: var(--gray-50); border: 1px solid var(--gray-200); }
+    .user-avatar { width: 26px; height: 26px; border-radius: 50%; background: var(--brown-mid); color: white; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; }
+    .user-name { font-size: 12px; font-weight: 600; color: var(--brown-dark); }
+
+    /* VIEWS */
+    .view { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+    .view.show { display: flex; }
+
+    /* INFO BANNER */
+    .info-banner { padding: 9px 18px; display: flex; align-items: center; gap: 10px; font-size: 12px; font-weight: 500; flex-shrink: 0; border-bottom: 1.5px solid; line-height: 1.5; }
+    .info-banner.blue   { background: var(--blue-bg);   color: var(--blue);   border-color: var(--blue-border); }
+    .info-banner.green  { background: var(--green-bg);  color: #166534;       border-color: var(--green-border); }
+    .info-banner.amber  { background: var(--amber-bg);  color: #92400E;       border-color: var(--amber-border); }
+
+    /* ORDER VIEW — MENU */
+    .menu-controls { padding: 12px 18px 10px; background: var(--white); border-bottom: 1px solid var(--gray-100); flex-shrink: 0; }
+    .cat-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+    .cat-chip { display: flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 20px; border: 1px solid var(--gray-200); background: var(--white); font-size: 12px; font-weight: 600; color: var(--gray-600); cursor: pointer; white-space: nowrap; font-family: inherit; transition: all 0.15s; }
+    .cat-chip.active { background: var(--brown-dark); color: white; border-color: var(--brown-dark); }
+    .menu-grid-wrap { flex: 1; overflow-y: auto; padding: 16px 18px; background: var(--gray-50); }
+    .menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); gap: 10px; }
+    .item-card { background: var(--white); border: 1.5px solid var(--gray-100); border-radius: 12px; padding: 12px 12px 44px; position: relative; min-height: 132px; cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s; }
+    .item-card:hover { border-color: var(--brown-mid); box-shadow: 0 4px 12px rgba(59,31,14,0.08); }
+    .item-emoji { font-size: 26px; margin-bottom: 8px; display: block; }
+    .item-main { font-size: 13px; font-weight: 700; color: var(--brown-dark); line-height: 1.35; margin-bottom: 2px; }
+    .item-sub  { font-size: 11px; color: var(--gray-400); margin-bottom: 3px; line-height: 1.3; }
+    .item-price { font-size: 13px; font-weight: 700; color: var(--brown-dark); }
+    .fallback-pill { display: inline-flex; align-items: center; font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 4px; background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber-border); vertical-align: middle; margin-left: 3px; }
+    .item-add { position: absolute; bottom: 10px; right: 10px; width: 28px; height: 28px; border-radius: 50%; background: var(--brown-dark); color: white; border: none; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .hi-chip { position: absolute; top: 8px; right: 8px; font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 4px; background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+
+    /* SETUP VIEW */
+    .setup-toolbar { padding: 12px 18px; background: var(--white); border-bottom: 1px solid var(--gray-100); display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+    .setup-toolbar-title { font-size: 14px; font-weight: 700; color: var(--brown-dark); }
+    .mgmt-list-wrap { flex: 1; overflow-y: auto; padding: 12px 18px; background: var(--gray-50); }
+    .mgmt-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: var(--white); border: 1px solid var(--gray-100); border-radius: 10px; margin-bottom: 6px; }
+    .mgmt-emoji { font-size: 20px; flex-shrink: 0; }
+    .mgmt-info { flex: 1; min-width: 0; }
+    .mgmt-en { font-size: 13px; font-weight: 600; color: var(--brown-dark); }
+    .mgmt-hi { font-size: 11px; margin-top: 2px; }
+    .mgmt-hi.set { color: var(--green); }
+    .mgmt-hi.unset { color: var(--amber); font-style: italic; }
+    .mgmt-price { font-size: 12px; font-weight: 600; color: var(--gray-400); flex-shrink: 0; min-width: 40px; text-align: right; }
+    .mgmt-edit { padding: 4px 10px; border: 1px solid var(--gray-200); border-radius: 6px; background: var(--gray-50); font-size: 11px; font-weight: 600; color: var(--gray-600); cursor: pointer; font-family: inherit; flex-shrink: 0; }
+    .mgmt-edit:hover { border-color: var(--brown-mid); color: var(--brown-mid); }
+
+    /* MODAL */
+    .modal-wrap { position: absolute; inset: 0; background: rgba(59,31,14,0.3); display: none; align-items: center; justify-content: center; z-index: 400; }
+    .modal-wrap.open { display: flex; }
+    .modal { background: var(--white); border-radius: 16px; width: 460px; max-width: 94vw; box-shadow: 0 20px 60px rgba(59,31,14,0.18); overflow: hidden; }
+    .modal-hdr { padding: 16px 18px 14px; border-bottom: 1px solid var(--gray-100); display: flex; align-items: center; gap: 12px; }
+    .modal-hicon { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; background: var(--amber-bg); flex-shrink: 0; }
+    .modal-title { font-size: 15px; font-weight: 700; color: var(--brown-dark); }
+    .modal-sub { font-size: 12px; color: var(--gray-400); margin-top: 2px; }
+    .modal-close { margin-left: auto; width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--gray-200); background: var(--white); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 14px; color: var(--gray-400); }
+    .modal-body { padding: 16px 18px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+    .form-group { margin-bottom: 12px; }
+    .form-label { font-size: 12px; font-weight: 600; color: var(--gray-600); margin-bottom: 5px; display: flex; align-items: center; gap: 6px; }
+    .tag-req { font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 3px; background: var(--red); color: white; }
+    .tag-opt { font-size: 9px; font-weight: 600; padding: 1px 5px; border-radius: 3px; background: var(--gray-100); color: var(--gray-600); }
+    .form-input { width: 100%; padding: 8px 12px; border: 1px solid var(--gray-200); border-radius: 8px; font-size: 13px; color: var(--brown-dark); background: var(--gray-50); font-family: inherit; outline: none; }
+    .form-input:focus { border-color: var(--brown-mid); background: var(--white); }
+    .form-hint { font-size: 11px; color: var(--gray-400); margin-top: 4px; }
+    .hindi-box { background: var(--purple-bg); border: 1px solid var(--purple-border); border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; }
+    .hindi-box-hdr { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .hindi-badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 5px; background: var(--purple); color: white; }
+    .hindi-box-title { font-size: 12px; font-weight: 600; color: var(--purple); }
+    .hindi-box-desc { font-size: 11px; color: #6D28D9; margin-bottom: 8px; line-height: 1.5; }
+    .hindi-input { width: 100%; padding: 8px 12px; border: 1px solid var(--purple-border); border-radius: 8px; font-size: 15px; color: var(--brown-dark); background: var(--white); font-family: inherit; outline: none; }
+    .hindi-input:focus { border-color: var(--purple); }
+    .hindi-hint { font-size: 11px; color: #7C3AED; margin-top: 4px; }
+    .modal-ftr { padding: 12px 18px; border-top: 1px solid var(--gray-100); display: flex; gap: 10px; justify-content: flex-end; }
+    .mbtn-primary { padding: 9px 20px; background: var(--brown-dark); color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
+    .mbtn-secondary { padding: 9px 18px; background: var(--white); color: var(--gray-600); border: 1px solid var(--gray-200); border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
+
+    /* ANALYTICS VIEW */
+    .analytics-area { flex: 1; overflow-y: auto; padding: 18px; background: var(--gray-50); }
+    .stat-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 14px; }
+    .stat-card { background: var(--white); border: 1px solid var(--gray-100); border-radius: 12px; padding: 14px; }
+    .stat-label { font-size: 11px; font-weight: 600; color: var(--gray-400); margin-bottom: 4px; }
+    .stat-value { font-size: 20px; font-weight: 700; color: var(--brown-dark); }
+    .stat-delta { font-size: 11px; color: var(--green); font-weight: 500; margin-top: 2px; }
+    .chart-card { background: var(--white); border: 1px solid var(--gray-100); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+    .chart-title { font-size: 13px; font-weight: 700; color: var(--brown-dark); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+    .bar-chart { display: flex; align-items: flex-end; gap: 10px; height: 90px; }
+    .bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; }
+    .bar { width: 100%; border-radius: 5px 5px 0 0; background: var(--brown-mid); min-height: 4px; }
+    .bar-lbl { font-size: 10px; color: var(--gray-400); white-space: nowrap; }
+    .bar-val { font-size: 11px; font-weight: 600; color: var(--brown-dark); }
+    .ac-pill { display: inline-flex; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 5px; background: var(--gray-100); color: var(--gray-600); }
+
+    /* SESSION VIEW */
+    .session-area { flex: 1; overflow-y: auto; padding: 18px; background: var(--gray-50); }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+    .info-card { background: var(--white); border: 1px solid var(--gray-100); border-radius: 12px; padding: 16px; }
+    .ic-hdr { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .ic-icon { font-size: 20px; }
+    .ic-title { font-size: 14px; font-weight: 700; color: var(--brown-dark); flex: 1; }
+    .ic-ac { font-size: 10px; font-weight: 600; color: white; background: var(--brown-mid); padding: 2px 7px; border-radius: 6px; white-space: nowrap; }
+    .flow { display: flex; align-items: flex-start; }
+    .flow-step { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; text-align: center; }
+    .flow-bubble { width: 34px; height: 34px; border-radius: 50%; border: 2px solid; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+    .fb-brown { border-color: var(--brown-mid); background: var(--cream); }
+    .fb-blue  { border-color: var(--blue);      background: var(--blue-bg); }
+    .fb-green { border-color: var(--green);     background: var(--green-bg); }
+    .fb-gray  { border-color: var(--gray-400);  background: var(--gray-100); }
+    .flow-lbl { font-size: 9px; color: var(--gray-400); line-height: 1.3; max-width: 52px; }
+    .flow-lbl strong { color: var(--brown-dark); font-size: 10px; display: block; }
+    .flow-arrow { font-size: 12px; color: var(--gray-300); margin: 10px 0 0; flex-shrink: 0; }
+    .be-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .be-side { border-radius: 8px; padding: 10px 12px; }
+    .be-user { background: var(--green-bg); border: 1px solid var(--green-border); }
+    .be-db   { background: var(--gray-50);  border: 1px solid var(--gray-200); }
+    .be-label { font-size: 10px; font-weight: 700; margin-bottom: 6px; }
+    .be-user .be-label { color: var(--green); }
+    .be-db .be-label   { color: var(--gray-600); }
+    .be-row { font-size: 11px; color: var(--brown-dark); padding: 3px 0; border-bottom: 1px dashed rgba(0,0,0,0.07); }
+    .be-row:last-child { border-bottom: none; }
+    .be-key { color: var(--gray-400); font-size: 10px; }
+    .scope-card { background: var(--white); border: 1px solid var(--gray-100); border-radius: 12px; overflow: hidden; }
+    .scope-card-hdr { padding: 12px 16px; border-bottom: 1px solid var(--gray-100); font-size: 13px; font-weight: 700; color: var(--brown-dark); }
+    .scope-tbl { width: 100%; border-collapse: collapse; }
+    .scope-tbl th { text-align: left; padding: 9px 14px; font-size: 11px; font-weight: 600; color: var(--gray-600); background: var(--gray-50); border-bottom: 1px solid var(--gray-100); }
+    .scope-tbl td { padding: 9px 14px; font-size: 12px; border-bottom: 1px solid var(--gray-100); }
+    .scope-tbl tr:last-child td { border-bottom: none; }
+    .scope-tbl td:first-child { font-weight: 500; color: var(--brown-dark); }
+    .tag-yes { color: var(--green); font-weight: 600; }
+    .tag-no  { color: var(--gray-400); }
+    .tag-hi { display: inline-flex; font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 4px; background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); margin-left: 4px; }
+    .tag-en { display: inline-flex; font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 4px; background: var(--gray-100); color: var(--gray-600); margin-left: 4px; }
+  </style>
+</head>
+<body>
+
+<!-- DEMO BAR -->
+<div class="demo-bar">
+  <span class="demo-label">F-10 Language Toggle:</span>
+  <button class="demo-tab active" onclick="show('en')">EN Mode (AC-10.2)</button>
+  <button class="demo-tab" onclick="show('hi')">HI Mode (AC-10.3)</button>
+  <button class="demo-tab" onclick="show('fallback')">Fallback (AC-10.8)</button>
+  <button class="demo-tab" onclick="show('setup')">Menu Setup (AC-10.9)</button>
+  <button class="demo-tab" onclick="show('other')">Other Screens (AC-10.7)</button>
+  <button class="demo-tab" onclick="show('session')">Session &amp; Backend (AC-10.5, 10.6)</button>
+</div>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">☕</div>
+    <span class="logo-text">Cafe<span>OSum</span></span>
+  </div>
+  <nav>
+    <span class="nav-label">Main</span>
+    <div class="nav-item" id="nav-dashboard"><span class="nav-icon">⊞</span> Dashboard</div>
+    <div class="nav-item" id="nav-menu"><span class="nav-icon">☰</span> Menu</div>
+    <div class="nav-item"><span class="nav-icon">🧾</span> Billing / POS</div>
+    <div class="nav-item" id="nav-orders"><span class="nav-icon">📋</span> Orders</div>
+    <span class="nav-label">Floor</span>
+    <div class="nav-item"><span class="nav-icon">🪑</span> Tables</div>
+    <span class="nav-label">Management</span>
+    <div class="nav-item"><span class="nav-icon">📦</span> Inventory</div>
+    <div class="nav-item"><span class="nav-icon">👷</span> Staff &amp; PINs</div>
+    <span class="nav-label">Insights</span>
+    <div class="nav-item" id="nav-analytics"><span class="nav-icon">📈</span> Analytics</div>
+    <div class="nav-item" id="nav-settings"><span class="nav-icon">⚙</span> Settings</div>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="logout-btn"><span>↪</span> Logout</div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main-wrapper">
+
+  <!-- TOPBAR (content injected by show()) -->
+  <header class="topbar" id="topbar"></header>
+
+  <!-- ── VIEW: ORDER ENTRY (en / hi / fallback) ── -->
+  <div class="view" id="view-order">
+    <div class="info-banner" id="order-banner"></div>
+    <div class="menu-controls">
+      <div class="cat-chips" id="cat-chips"></div>
+    </div>
+    <div class="menu-grid-wrap">
+      <div class="menu-grid" id="menu-grid"></div>
+    </div>
+  </div>
+
+  <!-- ── VIEW: MENU SETUP (AC-10.9) ── -->
+  <div class="view" id="view-setup" style="position:relative;">
+    <div class="setup-toolbar">
+      <span class="setup-toolbar-title">☰ Menu Items (15)</span>
+      <div class="spacer"></div>
+      <button class="btn-primary" onclick="openModal()">+ Add Item</button>
+    </div>
+    <div class="info-banner blue">
+      💡 <span><strong>AC-10.9:</strong> Each menu item has an optional <strong>Hindi Name</strong> field. Staff see the Hindi name on the order screen when Hindi mode is active. Items without a Hindi name fall back to the English name silently.</span>
+    </div>
+    <div class="mgmt-list-wrap" id="mgmt-list"></div>
+
+    <!-- Edit Modal (open by default on Blueberry Muffin) -->
+    <div class="modal-wrap" id="modal-setup">
+      <div class="modal">
+        <div class="modal-hdr">
+          <div class="modal-hicon">🧁</div>
+          <div>
+            <div class="modal-title">Edit Menu Item</div>
+            <div class="modal-sub">Blueberry Muffin · Desserts · ₹120</div>
+          </div>
+          <div class="modal-close" onclick="closeModal()">✕</div>
+        </div>
+        <div class="modal-body">
+          <div class="form-row">
+            <div class="form-group">
+              <div class="form-label">Item Name (English) <span class="tag-req">Required</span></div>
+              <input class="form-input" type="text" value="Blueberry Muffin" readonly />
+              <div class="form-hint">Stored in database, used in all bills and exports</div>
+            </div>
+            <div class="form-group">
+              <div class="form-label">Category</div>
+              <input class="form-input" type="text" value="Desserts" readonly />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <div class="form-label">Price (₹)</div>
+              <input class="form-input" type="text" value="120" readonly />
+            </div>
+            <div class="form-group">
+              <div class="form-label">Available</div>
+              <input class="form-input" type="text" value="✓ In stock" readonly />
+            </div>
+          </div>
+          <div class="hindi-box">
+            <div class="hindi-box-hdr">
+              <span class="hindi-badge">F-10</span>
+              <span class="hindi-box-title">Hindi Name <span style="font-weight:400;color:#9E8E7E;">(optional)</span></span>
+            </div>
+            <div class="hindi-box-desc">
+              Shown to staff on the order-entry screen when Hindi mode is active (AC-10.3). Leave blank and the English name is used as a fallback — no error, no warning (AC-10.8).
+            </div>
+            <input class="hindi-input" type="text" placeholder="e.g. ब्लूबेरी मफ़िन" value="" id="hindi-name-input" />
+            <div class="hindi-hint">💡 Type in Devanagari script · If left blank, staff see "Blueberry Muffin" in Hindi mode</div>
+          </div>
+        </div>
+        <div class="modal-ftr">
+          <button class="mbtn-secondary" onclick="closeModal()">Cancel</button>
+          <button class="mbtn-primary">Save Item</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── VIEW: OTHER SCREENS (Analytics stays English) ── -->
+  <div class="view" id="view-other">
+    <div class="info-banner blue">
+      🌐 <span><strong>AC-10.7:</strong> Hindi toggle is active (HI selected in topbar), but this screen — Analytics — stays in English. Same applies to Billing, Inventory, Staff, and error messages.</span>
+    </div>
+    <div class="analytics-area">
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-label">Revenue · June 2026</div>
+          <div class="stat-value">₹1,24,800</div>
+          <div class="stat-delta">↑ 14% vs May</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Total Orders</div>
+          <div class="stat-value">842</div>
+          <div class="stat-delta">↑ 9% vs May</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Avg Bill Value</div>
+          <div class="stat-value">₹342</div>
+          <div class="stat-delta">↑ 5% vs May</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Top Item</div>
+          <div class="stat-value" style="font-size:15px;">Cappuccino</div>
+          <div class="stat-delta">208 orders</div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">
+          Revenue by Category (June 2026)
+          <span class="ac-pill">Labels always in English — AC-10.7</span>
+        </div>
+        <div class="bar-chart">
+          <div class="bar-wrap"><div class="bar-val">₹52k</div><div class="bar" style="height:78px;"></div><div class="bar-lbl">Hot Drinks</div></div>
+          <div class="bar-wrap"><div class="bar-val">₹32k</div><div class="bar" style="height:48px;background:var(--brown-light);"></div><div class="bar-lbl">Cold Drinks</div></div>
+          <div class="bar-wrap"><div class="bar-val">₹24k</div><div class="bar" style="height:36px;background:var(--brown-light);"></div><div class="bar-lbl">Snacks</div></div>
+          <div class="bar-wrap"><div class="bar-val">₹17k</div><div class="bar" style="height:26px;background:var(--gray-200);"></div><div class="bar-lbl">Desserts</div></div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">
+          Top 5 Items by Orders
+          <span class="ac-pill">Item names stored + shown in English — AC-10.6, 10.7</span>
+        </div>
+        <table style="width:100%;border-collapse:collapse;">
+          <tr style="border-bottom:1px solid var(--gray-100);">
+            <th style="text-align:left;padding:7px 0;font-size:11px;color:var(--gray-400);font-weight:600;">#</th>
+            <th style="text-align:left;padding:7px 0;font-size:11px;color:var(--gray-400);font-weight:600;">Item Name (English)</th>
+            <th style="text-align:right;padding:7px 0;font-size:11px;color:var(--gray-400);font-weight:600;">Orders</th>
+            <th style="text-align:right;padding:7px 0;font-size:11px;color:var(--gray-400);font-weight:600;">Revenue</th>
+          </tr>
+          <tr style="border-bottom:1px solid var(--gray-100);"><td style="padding:7px 0;font-size:12px;">1</td><td style="padding:7px 0;font-size:13px;font-weight:600;color:var(--brown-dark);">Cappuccino</td><td style="text-align:right;font-size:12px;font-weight:600;">208</td><td style="text-align:right;font-size:12px;font-weight:600;">₹24,960</td></tr>
+          <tr style="border-bottom:1px solid var(--gray-100);"><td style="padding:7px 0;font-size:12px;">2</td><td style="padding:7px 0;font-size:13px;font-weight:600;color:var(--brown-dark);">Masala Chai</td><td style="text-align:right;font-size:12px;font-weight:600;">184</td><td style="text-align:right;font-size:12px;font-weight:600;">₹11,040</td></tr>
+          <tr style="border-bottom:1px solid var(--gray-100);"><td style="padding:7px 0;font-size:12px;">3</td><td style="padding:7px 0;font-size:13px;font-weight:600;color:var(--brown-dark);">Vada Pav</td><td style="text-align:right;font-size:12px;font-weight:600;">162</td><td style="text-align:right;font-size:12px;font-weight:600;">₹6,480</td></tr>
+          <tr style="border-bottom:1px solid var(--gray-100);"><td style="padding:7px 0;font-size:12px;">4</td><td style="padding:7px 0;font-size:13px;font-weight:600;color:var(--brown-dark);">Cold Brew Latte</td><td style="text-align:right;font-size:12px;font-weight:600;">138</td><td style="text-align:right;font-size:12px;font-weight:600;">₹20,700</td></tr>
+          <tr><td style="padding:7px 0;font-size:12px;">5</td><td style="padding:7px 0;font-size:13px;font-weight:600;color:var(--brown-dark);">Latte</td><td style="text-align:right;font-size:12px;font-weight:600;">126</td><td style="text-align:right;font-size:12px;font-weight:600;">₹16,380</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── VIEW: SESSION & BACKEND ── -->
+  <div class="view" id="view-session">
+    <div class="session-area">
+      <div class="two-col">
+
+        <!-- Session Scope Card -->
+        <div class="info-card">
+          <div class="ic-hdr">
+            <span class="ic-icon">🔄</span>
+            <span class="ic-title">Session Scope</span>
+            <span class="ic-ac">AC-10.5</span>
+          </div>
+          <p style="font-size:12px;color:var(--gray-600);margin-bottom:12px;line-height:1.6;">
+            Language preference is saved for the <strong>current session only</strong>. On next login, the toggle automatically resets to English — no database entry, no per-account setting.
+          </p>
+          <div class="flow">
+            <div class="flow-step">
+              <div class="flow-bubble fb-brown">🔑</div>
+              <div class="flow-lbl"><strong>Login</strong>EN default</div>
+            </div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-step">
+              <div class="flow-bubble fb-blue">EN</div>
+              <div class="flow-lbl"><strong>Default</strong>AC-10.2</div>
+            </div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-step">
+              <div class="flow-bubble fb-green">HI</div>
+              <div class="flow-lbl"><strong>User toggles</strong>HI active</div>
+            </div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-step">
+              <div class="flow-bubble fb-gray">↪</div>
+              <div class="flow-lbl"><strong>Logout</strong>session ends</div>
+            </div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-step">
+              <div class="flow-bubble fb-brown">🔑</div>
+              <div class="flow-lbl"><strong>Next login</strong>resets to EN</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Backend Always English Card -->
+        <div class="info-card">
+          <div class="ic-hdr">
+            <span class="ic-icon">🗄</span>
+            <span class="ic-title">Backend Always English</span>
+            <span class="ic-ac">AC-10.6</span>
+          </div>
+          <p style="font-size:12px;color:var(--gray-600);margin-bottom:10px;line-height:1.6;">
+            Hindi is a <strong>frontend display layer only</strong>. No database field, bill, receipt, or export ever stores Hindi text — the translation happens purely in the browser.
+          </p>
+          <div class="be-grid">
+            <div class="be-side be-user">
+              <div class="be-label">👩 Staff sees (HI mode)</div>
+              <div class="be-row"><span class="be-key">Item:</span> मसाला चाय</div>
+              <div class="be-row"><span class="be-key">Category:</span> गर्म पेय</div>
+              <div class="be-row"><span class="be-key">Price:</span> ₹60</div>
+            </div>
+            <div class="be-side be-db">
+              <div class="be-label">🗄 Database stores</div>
+              <div class="be-row"><span class="be-key">item_name:</span> Masala Chai</div>
+              <div class="be-row"><span class="be-key">category:</span> hot_drinks</div>
+              <div class="be-row"><span class="be-key">price:</span> 60</div>
+            </div>
+          </div>
+          <p style="font-size:11px;color:var(--gray-400);margin-top:8px;line-height:1.5;">
+            Bills, GST exports, KOT slips, and analytics all use the English name from the database — accountants and reports are never affected.
+          </p>
+        </div>
+      </div>
+
+      <!-- Scope Reference Table -->
+      <div class="scope-card">
+        <div class="scope-card-hdr">Language Toggle Scope — What changes vs. what stays in English</div>
+        <table class="scope-tbl">
+          <thead>
+            <tr>
+              <th>Screen / Element</th>
+              <th>Switches to Hindi</th>
+              <th>Stays in English</th>
+              <th>AC</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Menu item names (order-entry screen)</td>
+              <td class="tag-yes">✓ Yes <span class="tag-hi">HI</span></td>
+              <td class="tag-no">—</td>
+              <td style="font-size:11px;color:var(--gray-400);">AC-10.3</td>
+            </tr>
+            <tr>
+              <td>Category labels (order-entry screen)</td>
+              <td class="tag-yes">✓ Yes <span class="tag-hi">HI</span></td>
+              <td class="tag-no">—</td>
+              <td style="font-size:11px;color:var(--gray-400);">AC-10.3</td>
+            </tr>
+            <tr>
+              <td>Prices (₹ numerals)</td>
+              <td class="tag-no">Unchanged</td>
+              <td class="tag-yes">✓ Always same <span class="tag-en">EN</span></td>
+              <td style="font-size:11px;color:var(--gray-400);">AC-10.4</td>
+            </tr>
+            <tr>
+              <td>Analytics labels, chart titles, KPIs</td>
+              <td class="tag-no">—</td>
+              <td class="tag-yes">✓ English only <span class="tag-en">EN</span></td>
+              <td style="font-size:11px;color:var(--gray-400);">AC-10.7</td>
+            </tr>
+            <tr>
+              <td>Billing &amp; POS screen (bill items, totals)</td>
+              <td class="tag-no">—</td>
+              <td class="tag-yes">✓ English only <span class="tag-en">EN</span></td>
+              <td style="font-size:11px;color:var(--gray-400);">AC-10.7</td>
+            </tr>
+            <tr>
+              <td>Inventory fields (item names, units)</td>
+              <td class="tag-no">—</td>
+              <td class="tag-yes">✓ English only <span class="tag-en">EN</span></td>
+              <td style="font-size:11px;color:var(--gray-400);">AC-10.7</td>
+            </tr>
+            <tr>
+              <td>Staff management screen</td>
+              <td class="tag-no">—</td>
+              <td class="tag-yes">✓ English only <span class="tag-en">EN</span></td>
+              <td style="font-size:11px;color:var(--gray-400);">AC-10.7</td>
+            </tr>
+            <tr>
+              <td>System notifications &amp; error messages</td>
+              <td class="tag-no">—</td>
+              <td class="tag-yes">✓ English only <span class="tag-en">EN</span></td>
+              <td style="font-size:11px;color:var(--gray-400);">AC-10.7</td>
+            </tr>
+            <tr>
+              <td>Database records, bills, GST exports</td>
+              <td class="tag-no">—</td>
+              <td class="tag-yes">✓ Always English <span class="tag-en">EN</span></td>
+              <td style="font-size:11px;color:var(--gray-400);">AC-10.6</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main-wrapper -->
+
+
+<script>
+/* ── DATA ── */
+const MENU = [
+  { id:1,  name:'Masala Chai',      hi:'मसाला चाय',        price:60,  cat:'hot',     emoji:'☕' },
+  { id:2,  name:'Filter Coffee',    hi:'फ़िल्टर कॉफ़ी',     price:50,  cat:'hot',     emoji:'☕' },
+  { id:3,  name:'Americano',        hi:null,               price:90,  cat:'hot',     emoji:'☕' },
+  { id:4,  name:'Cappuccino',       hi:'कैपुचीनो',          price:120, cat:'hot',     emoji:'☕' },
+  { id:5,  name:'Latte',            hi:'लाट्टे',            price:130, cat:'hot',     emoji:'☕' },
+  { id:6,  name:'Cold Brew Latte',  hi:null,               price:150, cat:'cold',    emoji:'🧊' },
+  { id:7,  name:'Iced Latte',       hi:'आइस्ड लाट्टे',     price:140, cat:'cold',    emoji:'🥤' },
+  { id:8,  name:'Fresh Lime Soda',  hi:'नींबू सोडा',        price:70,  cat:'cold',    emoji:'🍋' },
+  { id:9,  name:'Mango Smoothie',   hi:'आम स्मूदी',         price:110, cat:'cold',    emoji:'🥭' },
+  { id:10, name:'Vada Pav',         hi:'वड़ा पाव',          price:40,  cat:'snacks',  emoji:'🍔' },
+  { id:11, name:'Samosa (2 pcs)',   hi:'समोसा',             price:30,  cat:'snacks',  emoji:'🥟' },
+  { id:12, name:'Grilled Sandwich', hi:'ग्रिल्ड सैंडविच',  price:90,  cat:'snacks',  emoji:'🥪' },
+  { id:13, name:'Blueberry Muffin', hi:null,               price:120, cat:'desserts',emoji:'🧁' },
+  { id:14, name:'Choco Lava Cake',  hi:'चॉको लावा केक',    price:150, cat:'desserts',emoji:'🍰' },
+  { id:15, name:'Brownie',          hi:'ब्राउनी',           price:100, cat:'desserts',emoji:'🍫' },
+];
+
+const CAT_EN = { hot:'Hot Drinks', cold:'Cold Drinks', snacks:'Snacks', desserts:'Desserts' };
+const CAT_HI = { hot:'गर्म पेय',   cold:'ठंडे पेय',  snacks:'स्नैक्स', desserts:'मिठाइयाँ' };
+const CAT_ICONS = { hot:'☕', cold:'🧊', snacks:'🍔', desserts:'🧁' };
+
+/* Items without a Hindi name — for fallback demo */
+const NO_HI_IDS = new Set([3, 6, 13]);
+
+let currentOrderState = 'en';
+let currentCat = 'hot';
+
+/* ── TOPBAR ── */
+const TOPBAR = {
+  en:      { title:'Order Entry',         back:true,  badge:'<div class="ctx-badge amber">🧑‍🤝‍🧑 Table 2 · 2 guests</div>', sync:true,  hiActive:false, navActive:'nav-orders',   action:'<button class="btn-primary">🍳 Send to Kitchen</button>' },
+  hi:      { title:'Order Entry',         back:true,  badge:'<div class="ctx-badge amber">🧑‍🤝‍🧑 Table 2 · 2 guests</div>', sync:true,  hiActive:true,  navActive:'nav-orders',   action:'<button class="btn-primary">🍳 Send to Kitchen</button>' },
+  fallback:{ title:'Order Entry',         back:true,  badge:'<div class="ctx-badge amber">🧑‍🤝‍🧑 Table 2 · 2 guests</div>', sync:true,  hiActive:true,  navActive:'nav-orders',   action:'<button class="btn-primary">🍳 Send to Kitchen</button>' },
+  setup:   { title:'Menu Setup',          back:false, badge:'',                                                               sync:false, hiActive:false, navActive:'nav-menu',     action:'<button class="btn-secondary">⬇ Import CSV</button>' },
+  other:   { title:'Analytics',           back:false, badge:'<div class="ctx-badge blue">📅 June 2026</div>',                 sync:false, hiActive:true,  navActive:'nav-analytics', action:'<button class="btn-secondary">⬇ Export PDF</button>' },
+  session: { title:'Language &amp; Session', back:false, badge:'',                                                           sync:false, hiActive:false, navActive:'nav-settings', action:'' },
+};
+
+function renderTopbar(state) {
+  const cfg = TOPBAR[state];
+  const backBtn = cfg.back ? '<div class="topbar-back" title="Back to Tables">←</div>' : '';
+  const syncPill = cfg.sync ? '<div class="sync-pill"><div class="sync-dot"></div><span>Live</span></div>' : '';
+  const langToggle = `
+    <div class="lang-toggle" title="Toggle EN/HI — visible on all post-login screens (AC-10.1, 10.10)">
+      <button class="lang-btn ${!cfg.hiActive ? 'en-on' : ''}">EN</button>
+      <button class="lang-btn ${cfg.hiActive  ? 'hi-on' : ''}">HI</button>
+    </div>`;
+  document.getElementById('topbar').innerHTML = `
+    ${backBtn}
+    <span class="topbar-title">${cfg.title}</span>
+    ${cfg.badge}
+    ${langToggle}
+    ${syncPill}
+    <div class="spacer"></div>
+    ${cfg.action}
+    <div class="user-chip"><div class="user-avatar">RK</div><span class="user-name">Rajesh K.</span></div>`;
+}
+
+function setNavActive(id) {
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  const el = document.getElementById(id);
+  if (el) el.classList.add('active');
+}
+
+/* ── ORDER VIEW ── */
+function renderCatChips(isHindi) {
+  const labels = isHindi ? CAT_HI : CAT_EN;
+  const chips = ['all', 'hot', 'cold', 'snacks', 'desserts'].map(cat => {
+    const label = cat === 'all'
+      ? (isHindi ? '⊞ सभी' : '⊞ All')
+      : `${CAT_ICONS[cat]} ${labels[cat]}`;
+    return `<button class="cat-chip ${currentCat===cat?'active':''}" onclick="filterCat('${cat}')">${label}</button>`;
+  });
+  document.getElementById('cat-chips').innerHTML = chips.join('');
+}
+
+function renderMenuGrid(state) {
+  const isHindi = state === 'hi' || state === 'fallback';
+  const showFallbackPill = state === 'fallback';
+
+  const items = MENU.filter(m => currentCat === 'all' || m.cat === currentCat);
+
+  document.getElementById('menu-grid').innerHTML = items.map(m => {
+    let mainName, subName = '', fallbackPill = '';
+    if (!isHindi) {
+      mainName = m.name;
+    } else if (m.hi) {
+      mainName = m.hi;
+      subName = `<div class="item-sub">${m.name}</div>`;
+    } else {
+      mainName = m.name;
+      if (showFallbackPill) {
+        fallbackPill = '<span class="fallback-pill">EN fallback</span>';
+      }
+    }
+    const hiChip = (isHindi && m.hi) ? '<div class="hi-chip">HI</div>' : '';
+    return `
+      <div class="item-card">
+        ${hiChip}
+        <span class="item-emoji">${m.emoji}</span>
+        <div class="item-main">${mainName}${fallbackPill}</div>
+        ${subName}
+        <div class="item-price">₹${m.price}</div>
+        <button class="item-add">+</button>
+      </div>`;
+  }).join('');
+}
+
+function filterCat(cat) {
+  currentCat = cat;
+  renderCatChips(currentOrderState === 'hi' || currentOrderState === 'fallback');
+  renderMenuGrid(currentOrderState);
+}
+
+/* ── SETUP VIEW ── */
+function renderSetup() {
+  document.getElementById('mgmt-list').innerHTML = MENU.map(m => {
+    const hiStatus = m.hi
+      ? `<div class="mgmt-hi set">✓ ${m.hi}</div>`
+      : `<div class="mgmt-hi unset">— Add Hindi name</div>`;
+    return `
+      <div class="mgmt-row">
+        <div class="mgmt-emoji">${m.emoji}</div>
+        <div class="mgmt-info">
+          <div class="mgmt-en">${m.name}</div>
+          ${hiStatus}
+        </div>
+        <div class="mgmt-price">₹${m.price}</div>
+        <button class="mgmt-edit" onclick="${!m.hi ? 'openModal()' : ''}">✏ Edit</button>
+      </div>`;
+  }).join('');
+}
+
+function openModal()  { document.getElementById('modal-setup').classList.add('open'); }
+function closeModal() { document.getElementById('modal-setup').classList.remove('open'); }
+
+/* ── BANNER TEXT ── */
+const BANNERS = {
+  en: { cls:'blue',  html:'🇬🇧 <span><strong>AC-10.2 — Default Language: English.</strong> EN is active on first login and every new session. Toggle is always visible in the topbar on all post-login screens (AC-10.1). Thumb-reachable on mobile (AC-10.10).</span>' },
+  hi: { cls:'green', html:'🇮🇳 <span><strong>AC-10.3 — Hindi mode active.</strong> Menu item names and category labels are shown in Devanagari script. Prices are unchanged — ₹ numerals are the same in both languages (AC-10.4). Backend stores English only (AC-10.6).</span>' },
+  fallback: { cls:'amber', html:'⚠ <span><strong>AC-10.8 — Hindi fallback active.</strong> Items without a Hindi name (<em>Americano, Cold Brew Latte, Blueberry Muffin</em>) silently show the English name with an <strong>EN fallback</strong> badge. No error, no warning.</span>' },
+};
+
+/* ── MASTER SHOW ── */
+function show(state) {
+  /* hide all views */
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('show'));
+  document.querySelectorAll('.demo-tab').forEach((t,i) => t.classList.remove('active'));
+  const IDX = { en:0, hi:1, fallback:2, setup:3, other:4, session:5 };
+  document.querySelectorAll('.demo-tab')[IDX[state]]?.classList.add('active');
+
+  renderTopbar(state);
+  setNavActive(TOPBAR[state].navActive);
+
+  if (['en','hi','fallback'].includes(state)) {
+    currentOrderState = state;
+    currentCat = 'hot';
+    const isHindi = state !== 'en';
+    const banner = document.getElementById('order-banner');
+    banner.className = `info-banner ${BANNERS[state].cls}`;
+    banner.innerHTML = BANNERS[state].html;
+    renderCatChips(isHindi);
+    renderMenuGrid(state);
+    document.getElementById('view-order').classList.add('show');
+  } else if (state === 'setup') {
+    renderSetup();
+    document.getElementById('view-setup').classList.add('show');
+    /* open modal by default to show Hindi field */
+    document.getElementById('modal-setup').classList.add('open');
+  } else if (state === 'other') {
+    document.getElementById('view-other').classList.add('show');
+  } else if (state === 'session') {
+    document.getElementById('view-session').classList.add('show');
+  }
+}
+
+/* ── INIT ── */
+show('en');
+</script>
+</body>
+</html>

@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CafeOSum — Inventory Management (F-07)</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --brown-dark:  #3B1F0E;
+      --brown-mid:   #7C4A1E;
+      --brown-light: #C08040;
+      --gold:        #D4A017;
+      --gold-light:  #F0C040;
+      --cream:       #FDF8F2;
+      --white:       #FFFFFF;
+      --gray-50:     #F9F5F0;
+      --gray-100:    #F0EBE3;
+      --gray-200:    #DDD5C8;
+      --gray-400:    #9E8E7E;
+      --gray-600:    #6B5B4E;
+      --green:       #2E8B57;
+      --green-bg:    #E8F5EE;
+      --green-border:#86EFAC;
+      --amber:       #D97706;
+      --amber-bg:    #FEF3C7;
+      --amber-border:#FDE68A;
+      --red:         #DC2626;
+      --red-bg:      #FEE2E2;
+      --red-border:  #FCA5A5;
+      --blue:        #2563EB;
+      --blue-bg:     #EFF6FF;
+      --blue-border: #BFDBFE;
+      --sidebar-w:   240px;
+      --header-h:    56px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--gray-50);
+      color: var(--brown-dark);
+      padding-top: 36px;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* DEMO BAR */
+    .demo-bar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 300;
+      background: var(--brown-dark); padding: 6px 16px;
+      display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    }
+    .demo-label { font-size: 11px; font-weight: 700; color: var(--gold-light); margin-right: 4px; white-space: nowrap; }
+    .demo-tab {
+      padding: 3px 11px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.2);
+      color: rgba(255,255,255,0.6); cursor: pointer; font-size: 11px; font-weight: 500;
+      font-family: inherit; background: transparent; transition: all 0.15s; white-space: nowrap;
+    }
+    .demo-tab:hover { background: rgba(255,255,255,0.1); color: white; }
+    .demo-tab.active { background: var(--gold); color: var(--brown-dark); border-color: var(--gold); font-weight: 700; }
+
+    /* SIDEBAR */
+    .sidebar {
+      width: var(--sidebar-w); background: var(--white);
+      border-right: 1px solid var(--gray-100);
+      position: fixed; top: 36px; left: 0; bottom: 0;
+      display: flex; flex-direction: column; z-index: 200;
+    }
+    .sidebar-logo { padding: 16px 20px; border-bottom: 1px solid var(--gray-100); display: flex; align-items: center; gap: 10px; }
+    .logo-icon { width: 34px; height: 34px; background: var(--brown-dark); border-radius: 9px; display: flex; align-items: center; justify-content: center; color: var(--gold-light); font-size: 17px; }
+    .logo-text { font-size: 16px; font-weight: 700; color: var(--brown-dark); }
+    .logo-text span { color: var(--gold); }
+    nav { flex: 1; padding: 14px 12px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
+    .nav-label { font-size: 10px; font-weight: 600; color: var(--gray-400); letter-spacing: 0.8px; text-transform: uppercase; padding: 10px 8px 4px; }
+    .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--gray-600); transition: background 0.15s; }
+    .nav-item:hover { background: var(--gray-50); color: var(--brown-dark); }
+    .nav-item.active { background: var(--cream); color: var(--brown-dark); font-weight: 600; }
+    .nav-icon { font-size: 15px; width: 20px; text-align: center; }
+    .nav-badge { margin-left: auto; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 10px; background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber-border); }
+    .sidebar-footer { padding: 12px; border-top: 1px solid var(--gray-100); }
+    .logout-btn { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--red); background: var(--red-bg); }
+
+    /* MAIN */
+    .main-wrapper { margin-left: var(--sidebar-w); height: calc(100vh - 36px); display: flex; flex-direction: column; overflow: hidden; }
+
+    /* TOPBAR */
+    .topbar { height: var(--header-h); background: var(--white); border-bottom: 1px solid var(--gray-100); display: flex; align-items: center; padding: 0 18px; gap: 10px; flex-shrink: 0; }
+    .topbar-title { font-size: 18px; font-weight: 700; color: var(--brown-dark); }
+    .spacer { flex: 1; }
+    .topbar-search { display: flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid var(--gray-200); border-radius: 8px; background: var(--gray-50); font-size: 13px; color: var(--gray-400); min-width: 200px; }
+    .topbar-btn { padding: 7px 14px; border-radius: 8px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; display: flex; align-items: center; gap: 6px; }
+    .topbar-btn.primary { background: var(--brown-dark); color: white; }
+    .topbar-btn.primary:hover { background: var(--brown-mid); }
+    .topbar-btn.secondary { background: var(--gray-50); color: var(--brown-dark); border: 1px solid var(--gray-200); }
+    .topbar-btn.secondary:hover { background: var(--gray-100); }
+    .user-chip { display: flex; align-items: center; gap: 8px; padding: 4px 10px 4px 4px; border-radius: 20px; background: var(--gray-50); border: 1px solid var(--gray-200); }
+    .user-avatar { width: 26px; height: 26px; border-radius: 50%; background: var(--brown-mid); color: white; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; }
+    .user-name { font-size: 12px; font-weight: 600; color: var(--brown-dark); }
+
+    /* CONTENT */
+    .content-area { flex: 1; overflow-y: auto; padding: 20px 24px; }
+
+    /* VIEWS */
+    .view { display: none; }
+    .view.active { display: block; }
+
+    /* SUMMARY BAR */
+    .summary-bar { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+    .sum-chip { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 10px; background: var(--white); border: 1px solid var(--gray-100); }
+    .sum-chip .val { font-size: 22px; font-weight: 800; color: var(--brown-dark); }
+    .sum-chip .lbl { font-size: 12px; color: var(--gray-400); font-weight: 500; }
+    .sum-chip.amber { border-color: var(--amber-border); background: var(--amber-bg); }
+    .sum-chip.amber .val { color: var(--amber); }
+    .sum-chip.red { border-color: var(--red-border); background: var(--red-bg); }
+    .sum-chip.red .val { color: var(--red); }
+    .sum-chip.blue { border-color: var(--blue-border); background: var(--blue-bg); }
+    .sum-chip.blue .val { color: var(--blue); }
+
+    /* SECTION HEADER */
+    .section-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 14px; }
+    .section-title { font-size: 15px; font-weight: 700; color: var(--brown-dark); }
+    .section-sub { font-size: 12px; color: var(--gray-400); margin-top: 3px; }
+
+    /* BADGES */
+    .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+    .badge.ok       { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+    .badge.low      { background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber-border); }
+    .badge.critical { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
+    .badge.unmapped { background: var(--blue-bg); color: var(--blue); border: 1px solid var(--blue-border); }
+
+    /* INGREDIENT TABLE */
+    .ing-table-wrap { background: var(--white); border: 1px solid var(--gray-100); border-radius: 12px; overflow: hidden; }
+    .ing-table { width: 100%; border-collapse: collapse; }
+    .ing-table th { text-align: left; padding: 10px 14px; background: var(--gray-50); color: var(--gray-400); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--gray-100); }
+    .ing-table td { padding: 11px 14px; border-bottom: 1px solid var(--gray-100); font-size: 13px; vertical-align: middle; }
+    .ing-table tr:last-child td { border-bottom: none; }
+    .ing-table tr:hover td { background: var(--gray-50); }
+    .ing-name { font-weight: 600; color: var(--brown-dark); }
+    .ing-unit-label { font-size: 11px; color: var(--gray-400); margin-top: 2px; }
+
+    /* STOCK BAR */
+    .stock-bar-wrap { display: flex; align-items: center; gap: 8px; }
+    .stock-val { font-size: 13px; font-weight: 700; color: var(--brown-dark); min-width: 48px; white-space: nowrap; }
+    .stock-bar-bg { flex: 1; height: 6px; background: var(--gray-100); border-radius: 3px; min-width: 80px; max-width: 130px; }
+    .stock-bar-fill { height: 100%; border-radius: 3px; }
+    .stock-bar-fill.ok       { background: var(--green); }
+    .stock-bar-fill.low      { background: var(--amber); }
+    .stock-bar-fill.critical { background: var(--red); }
+    .threshold-val { font-size: 11px; color: var(--gray-400); white-space: nowrap; }
+
+    /* TABLE ACTION BUTTONS */
+    .tbl-actions { display: flex; gap: 6px; }
+    .tbl-btn { padding: 4px 10px; border-radius: 6px; border: 1px solid var(--gray-200); background: var(--white); font-size: 11px; font-weight: 600; color: var(--gray-600); cursor: pointer; font-family: inherit; transition: all 0.15s; }
+    .tbl-btn:hover { background: var(--gray-50); border-color: var(--brown-mid); color: var(--brown-dark); }
+    .tbl-btn.restock { border-color: var(--green-border); color: var(--green); background: var(--green-bg); }
+    .tbl-btn.restock:hover { background: #d1fae5; }
+    .tbl-btn.map { border-color: var(--blue-border); color: var(--blue); background: var(--blue-bg); }
+
+    /* RECIPE GRID */
+    .recipe-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+    .recipe-card { background: var(--white); border: 1px solid var(--gray-100); border-radius: 12px; overflow: hidden; }
+    .recipe-card.expanded { border-color: var(--brown-mid); box-shadow: 0 0 0 3px rgba(124,74,30,0.08); }
+    .recipe-card-header { padding: 14px 16px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--gray-100); }
+    .recipe-item-icon { font-size: 22px; }
+    .recipe-item-name { font-size: 14px; font-weight: 700; color: var(--brown-dark); }
+    .recipe-ing-count { font-size: 11px; color: var(--gray-400); margin-top: 2px; }
+    .recipe-card-body { padding: 10px 16px 14px; }
+    .recipe-ing-list { display: flex; flex-direction: column; gap: 6px; }
+    .recipe-ing-row { display: flex; align-items: center; gap: 8px; padding: 7px 10px; background: var(--gray-50); border-radius: 7px; font-size: 12px; }
+    .recipe-ing-qty { font-size: 13px; font-weight: 800; color: var(--brown-dark); min-width: 54px; }
+    .recipe-ing-name { color: var(--gray-600); font-weight: 500; flex: 1; }
+    .recipe-ing-stock { font-size: 11px; color: var(--gray-400); white-space: nowrap; }
+    .recipe-ing-stock.low { color: var(--amber); font-weight: 600; }
+    .recipe-add-btn { margin-top: 10px; width: 100%; padding: 7px; border-radius: 7px; border: 1.5px dashed var(--gray-200); background: var(--white); font-size: 12px; font-weight: 600; color: var(--gray-400); cursor: pointer; font-family: inherit; transition: all 0.15s; }
+    .recipe-add-btn:hover { border-color: var(--brown-mid); color: var(--brown-dark); }
+
+    /* ALERT BANNER */
+    .alert-banner { padding: 13px 16px; border-radius: 10px; margin-bottom: 16px; display: flex; align-items: flex-start; gap: 12px; }
+    .alert-banner.amber { background: var(--amber-bg); border: 1px solid var(--amber-border); color: #92400E; }
+    .alert-banner.red   { background: var(--red-bg); border: 1px solid var(--red-border); color: var(--red); }
+    .alert-banner.blue  { background: var(--blue-bg); border: 1px solid var(--blue-border); color: #1e40af; }
+    .alert-icon { font-size: 20px; flex-shrink: 0; }
+    .alert-title { font-size: 14px; font-weight: 700; }
+    .alert-body  { font-size: 12px; line-height: 1.6; margin-top: 3px; }
+
+    /* RESTOCK FORM */
+    .restock-form { background: var(--white); border: 1px solid var(--gray-100); border-radius: 12px; padding: 18px; margin-bottom: 20px; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .form-group { display: flex; flex-direction: column; gap: 5px; }
+    .form-label { font-size: 12px; font-weight: 600; color: var(--gray-600); }
+    .form-input { padding: 9px 12px; border: 1.5px solid var(--gray-200); border-radius: 8px; font-size: 13px; color: var(--brown-dark); background: var(--gray-50); outline: none; font-family: inherit; }
+    .form-input:focus { border-color: var(--brown-mid); background: white; box-shadow: 0 0 0 3px rgba(124,74,30,0.1); }
+    select.form-input { cursor: pointer; }
+    .form-actions { display: flex; gap: 8px; margin-top: 14px; }
+    .btn-primary { padding: 9px 20px; background: var(--brown-dark); color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
+    .btn-primary:hover { background: var(--brown-mid); }
+    .btn-secondary { padding: 9px 20px; background: white; color: var(--gray-600); border: 1px solid var(--gray-200); border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
+
+    /* RESTOCK LOG */
+    .restock-log { background: var(--white); border: 1px solid var(--gray-100); border-radius: 12px; overflow: hidden; }
+    .restock-log-header { padding: 10px 16px; background: var(--gray-50); border-bottom: 1px solid var(--gray-100); font-size: 11px; font-weight: 700; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.5px; }
+    .restock-row { display: flex; align-items: center; gap: 12px; padding: 11px 16px; border-bottom: 1px solid var(--gray-100); font-size: 13px; }
+    .restock-row:last-child { border-bottom: none; }
+    .restock-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+    .restock-ing { font-weight: 600; color: var(--brown-dark); flex: 1; }
+    .restock-qty { font-weight: 700; color: var(--green); white-space: nowrap; }
+    .restock-meta { font-size: 11px; color: var(--gray-400); white-space: nowrap; }
+
+    /* DAILY REPORT */
+    .report-header-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+    .report-date-chip { padding: 6px 14px; background: var(--brown-dark); color: white; border-radius: 20px; font-size: 13px; font-weight: 600; }
+    .report-export-btns { display: flex; gap: 8px; margin-left: auto; }
+    .report-export-btn { padding: 6px 14px; border-radius: 8px; border: 1px solid var(--gray-200); background: var(--white); font-size: 12px; font-weight: 600; color: var(--gray-600); cursor: pointer; font-family: inherit; display: flex; align-items: center; gap: 5px; }
+    .report-export-btn:hover { background: var(--gray-50); border-color: var(--brown-mid); }
+    .report-table-wrap { background: var(--white); border: 1px solid var(--gray-100); border-radius: 12px; overflow: hidden; }
+    .report-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .report-table th { text-align: left; padding: 10px 14px; background: var(--gray-50); color: var(--gray-400); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--gray-100); }
+    .report-table td { padding: 11px 14px; border-bottom: 1px solid var(--gray-100); }
+    .report-table tr:last-child td { border-bottom: none; }
+    .report-table tr:hover td { background: var(--gray-50); }
+    .consumed-cell { color: var(--red); font-weight: 600; }
+    .closing-ok       { font-weight: 700; color: var(--brown-dark); }
+    .closing-low      { font-weight: 700; color: var(--amber); }
+    .closing-critical { font-weight: 700; color: var(--red); }
+
+    /* AUTO-DEDUCT */
+    .deduct-ref { background: var(--green-bg); border: 1px solid var(--green-border); border-radius: 10px; padding: 14px 16px; margin-bottom: 18px; display: flex; align-items: center; gap: 12px; }
+    .deduct-ref-icon { font-size: 24px; }
+    .deduct-ref-title { font-size: 14px; font-weight: 700; color: var(--green); }
+    .deduct-ref-sub { font-size: 12px; color: var(--gray-400); margin-top: 3px; }
+    .deduct-table-wrap { background: var(--white); border: 1px solid var(--gray-100); border-radius: 12px; overflow: hidden; }
+    .deduct-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .deduct-table th { text-align: left; padding: 10px 14px; background: var(--gray-50); color: var(--gray-400); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--gray-100); }
+    .deduct-table td { padding: 11px 14px; border-bottom: 1px solid var(--gray-100); }
+    .deduct-table tr:last-child td { border-bottom: none; }
+    .deduct-table tr:hover td { background: var(--gray-50); }
+    .before-cell { color: var(--gray-600); }
+    .deducted-cell { color: var(--red); font-weight: 700; }
+    .after-ok       { font-weight: 700; color: var(--brown-dark); }
+    .after-low      { font-weight: 700; color: var(--amber); }
+    .after-critical { font-weight: 700; color: var(--red); }
+    .why-note { font-size: 11px; color: var(--gray-400); font-weight: 400; display: block; margin-top: 2px; }
+
+    /* MODAL */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(59,31,14,0.4); z-index: 400; align-items: center; justify-content: center; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: var(--white); border-radius: 16px; width: 480px; max-width: 95vw; box-shadow: 0 20px 60px rgba(59,31,14,0.2); overflow: hidden; }
+    .modal-header { padding: 16px 18px 14px; border-bottom: 1px solid var(--gray-100); display: flex; align-items: center; gap: 12px; }
+    .modal-hicon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+    .modal-title { font-size: 15px; font-weight: 700; color: var(--brown-dark); }
+    .modal-sub { font-size: 12px; color: var(--gray-400); margin-top: 2px; }
+    .modal-close { margin-left: auto; width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--gray-200); background: white; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 14px; color: var(--gray-400); }
+    .modal-body { padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+    .modal-footer { padding: 13px 18px; border-top: 1px solid var(--gray-100); display: flex; gap: 10px; justify-content: flex-end; }
+    .mbtn-primary { padding: 9px 20px; background: var(--brown-dark); color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
+    .mbtn-secondary { padding: 9px 20px; background: white; color: var(--gray-600); border: 1px solid var(--gray-200); border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
+    .field-group { display: flex; flex-direction: column; gap: 5px; }
+    .field-group label { font-size: 12px; font-weight: 600; color: var(--gray-600); }
+    .field-input { width: 100%; padding: 9px 12px; border: 1.5px solid var(--gray-200); border-radius: 8px; font-size: 13px; color: var(--brown-dark); background: var(--gray-50); outline: none; font-family: inherit; }
+    .field-input:focus { border-color: var(--brown-mid); background: white; box-shadow: 0 0 0 3px rgba(124,74,30,0.1); }
+    .field-hint { font-size: 11px; color: var(--gray-400); }
+    .modal-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .span2 { grid-column: span 2; }
+    .info-note { font-size: 11px; color: var(--gray-400); background: var(--gray-50); border: 1px solid var(--gray-100); border-radius: 7px; padding: 8px 10px; line-height: 1.6; }
+  </style>
+</head>
+<body>
+
+<!-- ── DEMO BAR ── -->
+<div class="demo-bar">
+  <span class="demo-label">F-07 Inventory:</span>
+  <button class="demo-tab active" onclick="show('stock')">Stock View (AC-07.1)</button>
+  <button class="demo-tab"        onclick="show('recipe')">Recipe Mapping (AC-07.2)</button>
+  <button class="demo-tab"        onclick="show('autodeduct')">Auto-deduct (AC-07.3)</button>
+  <button class="demo-tab"        onclick="show('lowstock')">Low-stock Alerts (AC-07.4)</button>
+  <button class="demo-tab"        onclick="show('restock')">Restock Log (AC-07.5)</button>
+  <button class="demo-tab"        onclick="show('report')">Daily Report (AC-07.6)</button>
+  <button class="demo-tab"        onclick="show('unmapped')">Unmapped Items (AC-07.7)</button>
+</div>
+
+<!-- ── SIDEBAR ── -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">☕</div>
+    <span class="logo-text">Cafe<span>OSum</span></span>
+  </div>
+  <nav>
+    <span class="nav-label">Main</span>
+    <div class="nav-item"><span class="nav-icon">⊞</span> Dashboard</div>
+    <div class="nav-item"><span class="nav-icon">☰</span> Menu</div>
+    <div class="nav-item"><span class="nav-icon">🧾</span> Billing / POS</div>
+    <div class="nav-item"><span class="nav-icon">📋</span> Orders</div>
+    <span class="nav-label">Floor</span>
+    <div class="nav-item"><span class="nav-icon">🪑</span> Tables</div>
+    <span class="nav-label">Management</span>
+    <div class="nav-item active"><span class="nav-icon">📦</span> Inventory <span class="nav-badge">3 low</span></div>
+    <div class="nav-item"><span class="nav-icon">👷</span> Staff &amp; PINs</div>
+    <span class="nav-label">Insights</span>
+    <div class="nav-item"><span class="nav-icon">📈</span> Analytics</div>
+    <div class="nav-item"><span class="nav-icon">⚙</span> Settings</div>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="logout-btn"><span>↪</span> Logout</div>
+  </div>
+</aside>
+
+<!-- ── MAIN ── -->
+<div class="main-wrapper">
+  <header class="topbar">
+    <span class="topbar-title">📦 Inventory</span>
+    <div class="spacer"></div>
+    <div class="topbar-search">🔍 Search ingredients…</div>
+    <button class="topbar-btn secondary" onclick="openModal('modal-add')">+ Add Ingredient</button>
+    <button class="topbar-btn primary" onclick="show('restock')">📥 Restock</button>
+    <div class="user-chip">
+      <div class="user-avatar">RK</div>
+      <span class="user-name">Rajesh K.</span>
+    </div>
+  </header>
+
+  <div class="content-area">
+
+    <!-- ═══ STOCK VIEW ═══ -->
+    <div class="view active" id="view-stock">
+      <div class="summary-bar">
+        <div class="sum-chip"><span class="val">10</span><span class="lbl">Total Ingredients</span></div>
+        <div class="sum-chip amber"><span class="val">3</span><span class="lbl">Low / Critical</span></div>
+        <div class="sum-chip blue"><span class="val">2</span><span class="lbl">Unmapped</span></div>
+        <div class="sum-chip"><span class="val">8</span><span class="lbl">Recipes Linked</span></div>
+      </div>
+      <div class="section-header">
+        <div>
+          <div class="section-title">Ingredient Library (AC-07.1)</div>
+          <div class="section-sub">Stock level bar shows current stock vs. threshold — amber/red = alert territory</div>
+        </div>
+      </div>
+      <div id="wrap-stock"></div>
+    </div>
+
+    <!-- ═══ RECIPE MAPPING ═══ -->
+    <div class="view" id="view-recipe">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Recipe Mapping (AC-07.2)</div>
+          <div class="section-sub">Ingredients auto-deduct from stock when a bill containing that item is settled (AC-07.3)</div>
+        </div>
+        <button class="topbar-btn primary" style="font-size:12px;">+ New Recipe</button>
+      </div>
+      <div class="recipe-grid" id="recipe-grid"></div>
+    </div>
+
+    <!-- ═══ AUTO-DEDUCT ═══ -->
+    <div class="view" id="view-autodeduct">
+      <div class="deduct-ref">
+        <div class="deduct-ref-icon">🧾</div>
+        <div>
+          <div class="deduct-ref-title">✅ Deduction triggered — Bill #BILL-0048 settled (AC-07.3)</div>
+          <div class="deduct-ref-sub">Table 2 · 28 Jun 2026 14:38 · UPI · ₹462.00 · Cashier: Rajesh K. · 4 items × varied qty</div>
+        </div>
+      </div>
+      <div class="section-header">
+        <div>
+          <div class="section-title">Stock Deductions</div>
+          <div class="section-sub">Items: 2× Masala Chai · 1× Cappuccino · 1× Blueberry Muffin · 2× Vada Pav</div>
+        </div>
+      </div>
+      <div class="deduct-table-wrap">
+        <table class="deduct-table">
+          <thead>
+            <tr>
+              <th>Ingredient</th>
+              <th>Before</th>
+              <th>Deducted — Why</th>
+              <th>After</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="deduct-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══ LOW-STOCK ALERTS ═══ -->
+    <div class="view" id="view-lowstock">
+      <div class="alert-banner amber">
+        <div class="alert-icon">⚠️</div>
+        <div>
+          <div class="alert-title">3 Ingredients Below Alert Threshold (AC-07.4)</div>
+          <div class="alert-body">
+            Push notification sent to owner device · Last checked: 28 Jun 2026, 14:38 ·
+            Threshold is set per ingredient — edit any row to adjust the alert level
+          </div>
+        </div>
+      </div>
+      <div id="wrap-lowstock"></div>
+    </div>
+
+    <!-- ═══ RESTOCK ═══ -->
+    <div class="view" id="view-restock">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Log a Restock (AC-07.5)</div>
+          <div class="section-sub">Each entry is recorded with date, quantity, and user — feeds into the Daily Report</div>
+        </div>
+      </div>
+      <div class="restock-form">
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Ingredient</label>
+            <select class="form-input">
+              <option>Sugar — 180g left ⚠️ LOW</option>
+              <option>Cardamom — 45g left ⚠️ LOW</option>
+              <option>Bread Slices — 12 pcs left 🔴 CRITICAL</option>
+              <option>Espresso Beans — 850g left</option>
+              <option>Whole Milk — 2400ml left</option>
+              <option>Tea Leaves — 320g left</option>
+              <option>Blueberry Jam — 400g left</option>
+              <option>Paper Cups — 85 pcs left</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Quantity Added</label>
+            <input type="number" class="form-input" placeholder="e.g. 500" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Unit (auto-filled)</label>
+            <input type="text" class="form-input" value="g" style="background:var(--gray-100);color:var(--gray-400);" readonly />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date</label>
+            <input type="date" class="form-input" value="2026-06-28" />
+          </div>
+          <div class="form-group" style="grid-column:span 2;">
+            <label class="form-label">Supplier / Note (optional)</label>
+            <input type="text" class="form-input" placeholder="e.g. Arun Traders · Invoice #2451" />
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn-primary">✅ Log Restock</button>
+          <button class="btn-secondary">Clear</button>
+        </div>
+      </div>
+      <div class="section-header">
+        <div class="section-title">Recent Restock Log</div>
+      </div>
+      <div class="restock-log" id="restock-log"></div>
+    </div>
+
+    <!-- ═══ DAILY REPORT ═══ -->
+    <div class="view" id="view-report">
+      <div class="report-header-bar">
+        <span class="report-date-chip">📅 28 Jun 2026</span>
+        <span style="font-size:12px;color:var(--gray-400);">AC-07.6 — Opening → Consumed → Closing stock</span>
+        <div class="report-export-btns">
+          <button class="report-export-btn">📄 Export PDF</button>
+          <button class="report-export-btn">📊 Export CSV</button>
+        </div>
+      </div>
+      <div class="report-table-wrap">
+        <table class="report-table">
+          <thead>
+            <tr>
+              <th>Ingredient</th>
+              <th>Unit</th>
+              <th>Opening Stock</th>
+              <th>Consumed Today</th>
+              <th>Closing Stock</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="report-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══ UNMAPPED ═══ -->
+    <div class="view" id="view-unmapped">
+      <div class="alert-banner blue">
+        <div class="alert-icon">🔗</div>
+        <div>
+          <div class="alert-title">2 Ingredients Not Linked to Any Recipe (AC-07.7)</div>
+          <div class="alert-body">
+            Unmapped ingredients won't auto-deduct when bills are settled. Their stock levels won't decrease
+            even if they're physically consumed. Map them to a menu item recipe to enable automatic tracking.
+          </div>
+        </div>
+      </div>
+      <div id="wrap-unmapped"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── MODAL: Add Ingredient ── -->
+<div class="modal-overlay" id="modal-add">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-hicon" style="background:var(--green-bg);">📦</div>
+      <div>
+        <div class="modal-title">Add New Ingredient</div>
+        <div class="modal-sub">AC-07.1 — Name, unit, opening stock, and low-stock threshold</div>
+      </div>
+      <div class="modal-close" onclick="closeModal('modal-add')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div class="modal-grid2">
+        <div class="field-group span2">
+          <label>Ingredient Name</label>
+          <input type="text" class="field-input" placeholder="e.g. Almond Milk" />
+        </div>
+        <div class="field-group">
+          <label>Unit of Measurement</label>
+          <select class="field-input">
+            <option>g — grams</option>
+            <option>ml — millilitres</option>
+            <option>pcs — pieces</option>
+            <option>kg — kilograms</option>
+            <option>L — litres</option>
+          </select>
+          <span class="field-hint">Use the unit your supplier bills in</span>
+        </div>
+        <div class="field-group">
+          <label>Current Stock Quantity</label>
+          <input type="number" class="field-input" placeholder="e.g. 500" />
+        </div>
+        <div class="field-group">
+          <label>Low-stock Alert Threshold (AC-07.4)</label>
+          <input type="number" class="field-input" placeholder="e.g. 100" />
+          <span class="field-hint">Alert fires when stock drops below this</span>
+        </div>
+        <div class="field-group">
+          <label>Supplier (optional)</label>
+          <input type="text" class="field-input" placeholder="e.g. Arun Traders" />
+        </div>
+      </div>
+      <div class="info-note">
+        📋 After adding, go to <strong>Recipe Mapping</strong> to link this ingredient to menu items for automatic deduction.
+        Unmapped ingredients are flagged with a blue indicator (AC-07.7).
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="mbtn-secondary" onclick="closeModal('modal-add')">Cancel</button>
+      <button class="mbtn-primary">📦 Add Ingredient</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ─── DATA ─── */
+const INGREDIENTS = [
+  { id:1,  name:'Espresso Beans', unit:'g',   stock:850,  threshold:200, mapped:true  },
+  { id:2,  name:'Whole Milk',     unit:'ml',  stock:2400, threshold:500, mapped:true  },
+  { id:3,  name:'Sugar',          unit:'g',   stock:180,  threshold:200, mapped:true  },
+  { id:4,  name:'Cardamom',       unit:'g',   stock:45,   threshold:50,  mapped:true  },
+  { id:5,  name:'Tea Leaves',     unit:'g',   stock:320,  threshold:100, mapped:true  },
+  { id:6,  name:'Bread Slices',   unit:'pcs', stock:12,   threshold:20,  mapped:true  },
+  { id:7,  name:'Blueberry Jam',  unit:'g',   stock:400,  threshold:150, mapped:true  },
+  { id:8,  name:'Paper Cups',     unit:'pcs', stock:85,   threshold:50,  mapped:true  },
+  { id:9,  name:'Coconut Oil',    unit:'ml',  stock:600,  threshold:100, mapped:false },
+  { id:10, name:'Vanilla Extract',unit:'ml',  stock:30,   threshold:20,  mapped:false },
+];
+
+const RECIPES = [
+  { item:'Masala Chai',      emoji:'☕', ingredients:[
+    { name:'Tea Leaves',  unit:'g',   qty:5,   stock:320, low:false },
+    { name:'Whole Milk',  unit:'ml',  qty:100, stock:2400,low:false },
+    { name:'Sugar',       unit:'g',   qty:10,  stock:180, low:true  },
+    { name:'Cardamom',    unit:'g',   qty:2,   stock:45,  low:true  },
+  ]},
+  { item:'Cappuccino',       emoji:'☕', ingredients:[
+    { name:'Espresso Beans',unit:'g',  qty:18,  stock:850, low:false },
+    { name:'Whole Milk',    unit:'ml', qty:120, stock:2400,low:false },
+  ]},
+  { item:'Blueberry Muffin', emoji:'🧁', ingredients:[
+    { name:'Blueberry Jam', unit:'g', qty:40, stock:400, low:false },
+    { name:'Sugar',         unit:'g', qty:20, stock:180, low:true  },
+  ]},
+  { item:'Vada Pav',         emoji:'🍔', ingredients:[
+    { name:'Bread Slices', unit:'pcs', qty:2, stock:12, low:true },
+  ]},
+];
+
+const RESTOCK_LOG = [
+  { ing:'Whole Milk',     qty:'+2,000 ml', date:'28 Jun',  time:'07:15', note:'Arun Traders',         user:'Rajesh K.' },
+  { ing:'Espresso Beans', qty:'+500 g',    date:'27 Jun',  time:'09:00', note:'Coffee Empire India',   user:'Rajesh K.' },
+  { ing:'Sugar',          qty:'+200 g',    date:'26 Jun',  time:'14:30', note:'',                     user:'Priya S.'  },
+  { ing:'Tea Leaves',     qty:'+250 g',    date:'25 Jun',  time:'08:45', note:'Local market',          user:'Rajesh K.' },
+  { ing:'Blueberry Jam',  qty:'+300 g',    date:'24 Jun',  time:'11:00', note:'Big Basket',           user:'Priya S.'  },
+];
+
+const DAILY_REPORT = [
+  { name:'Espresso Beans',  unit:'g',   opening:1100, consumed:250,  closing:850,  status:'ok'       },
+  { name:'Whole Milk',      unit:'ml',  opening:4000, consumed:1600, closing:2400, status:'ok'       },
+  { name:'Sugar',           unit:'g',   opening:380,  consumed:200,  closing:180,  status:'low'      },
+  { name:'Cardamom',        unit:'g',   opening:89,   consumed:44,   closing:45,   status:'low'      },
+  { name:'Tea Leaves',      unit:'g',   opening:520,  consumed:200,  closing:320,  status:'ok'       },
+  { name:'Bread Slices',    unit:'pcs', opening:36,   consumed:24,   closing:12,   status:'critical' },
+  { name:'Blueberry Jam',   unit:'g',   opening:560,  consumed:160,  closing:400,  status:'ok'       },
+  { name:'Paper Cups',      unit:'pcs', opening:120,  consumed:35,   closing:85,   status:'ok'       },
+];
+
+// Bill #0048: 2×Masala Chai + 1×Cappuccino + 1×Blueberry Muffin + 2×Vada Pav
+const DEDUCTIONS = [
+  { name:'Tea Leaves',     unit:'g',   before:325,  qty:10,  why:'2× Masala Chai × 5g',                                  after:315,  status:'ok'       },
+  { name:'Whole Milk',     unit:'ml',  before:2520, qty:320, why:'2× Masala Chai × 100ml + 1× Cappuccino × 120ml',        after:2200, status:'ok'       },
+  { name:'Sugar',          unit:'g',   before:200,  qty:40,  why:'2× Masala Chai × 10g + 1× Blueberry Muffin × 20g',     after:160,  status:'low'      },
+  { name:'Cardamom',       unit:'g',   before:49,   qty:4,   why:'2× Masala Chai × 2g',                                  after:45,   status:'low'      },
+  { name:'Espresso Beans', unit:'g',   before:868,  qty:18,  why:'1× Cappuccino × 18g',                                  after:850,  status:'ok'       },
+  { name:'Blueberry Jam',  unit:'g',   before:440,  qty:40,  why:'1× Blueberry Muffin × 40g',                            after:400,  status:'ok'       },
+  { name:'Bread Slices',   unit:'pcs', before:16,   qty:4,   why:'2× Vada Pav × 2 pcs',                                  after:12,   status:'critical' },
+];
+
+/* ─── HELPERS ─── */
+function getStatus(stock, threshold) {
+  const ratio = stock / threshold;
+  if (ratio <= 0.6) return 'critical';
+  if (ratio <= 1.0) return 'low';
+  return 'ok';
+}
+
+function badgeHtml(status) {
+  const map = {
+    ok:       '<span class="badge ok">✓ OK</span>',
+    low:      '<span class="badge low">⚠ Low</span>',
+    critical: '<span class="badge critical">🔴 Critical</span>',
+  };
+  return map[status] || '';
+}
+
+function stockBarHtml(stock, threshold) {
+  const status = getStatus(stock, threshold);
+  const maxDisplay = Math.max(stock, threshold * 2);
+  const pct = Math.min(100, (stock / maxDisplay) * 100).toFixed(1);
+  return `<div class="stock-bar-wrap">
+    <span class="stock-val">${stock}</span>
+    <div class="stock-bar-bg"><div class="stock-bar-fill ${status}" style="width:${pct}%"></div></div>
+    <span class="threshold-val">/ ${threshold}</span>
+  </div>`;
+}
+
+/* ─── INGREDIENT TABLE ─── */
+function renderIngTable(wrapId, items) {
+  const rows = items.map(ing => {
+    const status = getStatus(ing.stock, ing.threshold);
+    return `<tr>
+      <td>
+        <div class="ing-name">${ing.name}</div>
+        <div class="ing-unit-label">${ing.unit}</div>
+      </td>
+      <td>${stockBarHtml(ing.stock, ing.threshold)}</td>
+      <td style="color:var(--gray-600);">${ing.threshold} ${ing.unit}</td>
+      <td>${badgeHtml(status)}</td>
+      <td>${!ing.mapped ? '<span class="badge unmapped">🔗 Unmapped</span>' : '<span style="font-size:11px;color:var(--gray-400);">Linked</span>'}</td>
+      <td><div class="tbl-actions">
+        <button class="tbl-btn restock">+ Restock</button>
+        <button class="tbl-btn">✏️ Edit</button>
+        ${!ing.mapped ? '<button class="tbl-btn map">🔗 Map</button>' : ''}
+      </div></td>
+    </tr>`;
+  }).join('');
+  document.getElementById(wrapId).innerHTML = `
+    <div class="ing-table-wrap"><table class="ing-table">
+      <thead><tr>
+        <th>Ingredient</th>
+        <th>Stock Level ▸ Threshold</th>
+        <th>Alert Threshold</th>
+        <th>Status</th>
+        <th>Recipe Link</th>
+        <th>Actions</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`;
+}
+
+/* ─── RECIPE GRID ─── */
+function renderRecipes() {
+  document.getElementById('recipe-grid').innerHTML = RECIPES.map((r, i) => `
+    <div class="recipe-card ${i === 0 ? 'expanded' : ''}">
+      <div class="recipe-card-header">
+        <span class="recipe-item-icon">${r.emoji}</span>
+        <div>
+          <div class="recipe-item-name">${r.item}</div>
+          <div class="recipe-ing-count">${r.ingredients.length} ingredient${r.ingredients.length !== 1 ? 's' : ''} mapped</div>
+        </div>
+        ${r.ingredients.some(i => i.low) ? '<span class="badge low" style="margin-left:auto;">⚠ Low Stock</span>' : '<span class="badge ok" style="margin-left:auto;">✓ Stocked</span>'}
+      </div>
+      <div class="recipe-card-body">
+        <div class="recipe-ing-list">
+          ${r.ingredients.map(ing => `
+            <div class="recipe-ing-row">
+              <span class="recipe-ing-qty">${ing.qty} ${ing.unit}</span>
+              <span class="recipe-ing-name">${ing.name}</span>
+              <span class="recipe-ing-stock ${ing.low ? 'low' : ''}">${ing.low ? '⚠ ' : ''}${ing.stock} ${ing.unit} left</span>
+            </div>`).join('')}
+        </div>
+        <button class="recipe-add-btn">+ Add Ingredient to Recipe</button>
+      </div>
+    </div>`).join('');
+}
+
+/* ─── RESTOCK LOG ─── */
+function renderRestockLog() {
+  document.getElementById('restock-log').innerHTML =
+    '<div class="restock-log-header">Restock History (AC-07.5)</div>' +
+    RESTOCK_LOG.map(r => `
+      <div class="restock-row">
+        <div class="restock-dot"></div>
+        <div class="restock-ing">${r.ing}</div>
+        <div class="restock-qty">${r.qty}</div>
+        <div class="restock-meta">${r.date} ${r.time}${r.note ? ' · ' + r.note : ''} · ${r.user}</div>
+      </div>`).join('');
+}
+
+/* ─── DAILY REPORT ─── */
+function renderReport() {
+  const statusLabel = { ok: badgeHtml('ok'), low: badgeHtml('low'), critical: badgeHtml('critical') };
+  document.getElementById('report-tbody').innerHTML = DAILY_REPORT.map(r => `
+    <tr>
+      <td><strong>${r.name}</strong></td>
+      <td style="color:var(--gray-400);">${r.unit}</td>
+      <td>${r.opening}</td>
+      <td class="consumed-cell">−${r.consumed}</td>
+      <td class="closing-${r.status}">${r.closing}</td>
+      <td>${statusLabel[r.status]}</td>
+    </tr>`).join('');
+}
+
+/* ─── AUTO-DEDUCT TABLE ─── */
+function renderDeduct() {
+  document.getElementById('deduct-tbody').innerHTML = DEDUCTIONS.map(d => `
+    <tr>
+      <td><strong>${d.name}</strong> <span style="font-size:11px;color:var(--gray-400);">(${d.unit})</span></td>
+      <td class="before-cell">${d.before} ${d.unit}</td>
+      <td class="deducted-cell">−${d.qty} ${d.unit}<span class="why-note">${d.why}</span></td>
+      <td class="after-${d.status}">${d.after} ${d.unit}</td>
+      <td>${badgeHtml(d.status)}</td>
+    </tr>`).join('');
+}
+
+/* ─── SHOW CONTROLLER ─── */
+const STATES = ['stock','recipe','autodeduct','lowstock','restock','report','unmapped'];
+
+function show(state) {
+  document.querySelectorAll('.demo-tab').forEach((t, i) => {
+    t.classList.toggle('active', STATES[i] === state);
+  });
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + state).classList.add('active');
+}
+
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+/* ─── INIT ─── */
+renderIngTable('wrap-stock',    INGREDIENTS);
+renderIngTable('wrap-lowstock', INGREDIENTS.filter(i => getStatus(i.stock, i.threshold) !== 'ok'));
+renderIngTable('wrap-unmapped', INGREDIENTS.filter(i => !i.mapped));
+renderRecipes();
+renderRestockLog();
+renderReport();
+renderDeduct();
+show('stock');
+</script>
+</body>
+</html>

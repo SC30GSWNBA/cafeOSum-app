@@ -1,0 +1,1149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CafeOSum — Authentication</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --brown-dark:  #3B1F0E;
+      --brown-mid:   #7C4A1E;
+      --brown-light: #C08040;
+      --gold:        #D4A017;
+      --gold-light:  #F0C040;
+      --cream:       #FDF8F2;
+      --white:       #FFFFFF;
+      --gray-50:     #F9F5F0;
+      --gray-100:    #F0EBE3;
+      --gray-200:    #DDD5C8;
+      --gray-400:    #9E8E7E;
+      --gray-600:    #6B5B4E;
+      --green:       #2E8B57;
+      --green-bg:    #E8F5EE;
+      --amber:       #D97706;
+      --amber-bg:    #FEF3C7;
+      --red:         #DC2626;
+      --red-bg:      #FEE2E2;
+      --red-border:  #FCA5A5;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--gray-50);
+      color: var(--brown-dark);
+      min-height: 100vh;
+      display: flex;
+      align-items: stretch;
+    }
+
+    /* ── SCREEN SWITCHER ── */
+    .screen { display: none; width: 100%; }
+    .screen.active { display: flex; }
+
+    /* ── SPLIT LAYOUT ── */
+    .auth-layout {
+      display: flex;
+      width: 100%;
+      min-height: 100vh;
+    }
+
+    /* ── LEFT PANEL (branding) ── */
+    .brand-panel {
+      width: 42%;
+      background: var(--brown-dark);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 40px 48px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .brand-panel::before {
+      content: '';
+      position: absolute;
+      top: -80px; right: -80px;
+      width: 300px; height: 300px;
+      border-radius: 50%;
+      background: rgba(212, 160, 23, 0.08);
+    }
+
+    .brand-panel::after {
+      content: '';
+      position: absolute;
+      bottom: -60px; left: -60px;
+      width: 240px; height: 240px;
+      border-radius: 50%;
+      background: rgba(240, 192, 64, 0.06);
+    }
+
+    .brand-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      z-index: 1;
+    }
+
+    .brand-logo-icon {
+      width: 40px; height: 40px;
+      background: var(--gold);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+    }
+
+    .brand-logo-text {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--white);
+      letter-spacing: -0.3px;
+    }
+
+    .brand-logo-text span { color: var(--gold); }
+
+    .brand-center {
+      z-index: 1;
+    }
+
+    .brand-tagline {
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--white);
+      line-height: 1.25;
+      margin-bottom: 16px;
+      letter-spacing: -0.5px;
+    }
+
+    .brand-tagline span { color: var(--gold-light); }
+
+    .brand-sub {
+      font-size: 15px;
+      color: rgba(255,255,255,0.55);
+      line-height: 1.6;
+      max-width: 300px;
+    }
+
+    .brand-stats {
+      display: flex;
+      gap: 28px;
+      margin-top: 36px;
+      z-index: 1;
+    }
+
+    .brand-stat {
+      z-index: 1;
+    }
+
+    .brand-stat-value {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--gold-light);
+    }
+
+    .brand-stat-label {
+      font-size: 12px;
+      color: rgba(255,255,255,0.45);
+      margin-top: 2px;
+    }
+
+    .brand-footer {
+      font-size: 12px;
+      color: rgba(255,255,255,0.3);
+      z-index: 1;
+    }
+
+    /* Decorative cup illustration */
+    .brand-illustration {
+      position: absolute;
+      right: 32px;
+      bottom: 120px;
+      font-size: 120px;
+      opacity: 0.06;
+      z-index: 0;
+      user-select: none;
+    }
+
+    /* ── RIGHT PANEL (form) ── */
+    .form-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 48px 40px;
+      background: var(--white);
+      overflow-y: auto;
+    }
+
+    .form-card {
+      width: 100%;
+      max-width: 400px;
+    }
+
+    .form-heading {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--brown-dark);
+      margin-bottom: 6px;
+      letter-spacing: -0.3px;
+    }
+
+    .form-subheading {
+      font-size: 14px;
+      color: var(--gray-400);
+      margin-bottom: 28px;
+      line-height: 1.5;
+    }
+
+    /* ── ALERT BANNERS ── */
+    .alert {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      margin-bottom: 20px;
+      border: 1px solid transparent;
+    }
+
+    .alert.error {
+      background: var(--red-bg);
+      border-color: var(--red-border);
+      color: var(--red);
+    }
+
+    .alert.warning {
+      background: var(--amber-bg);
+      border-color: #FDE68A;
+      color: var(--amber);
+    }
+
+    .alert.success {
+      background: var(--green-bg);
+      border-color: #86EFAC;
+      color: var(--green);
+    }
+
+    .alert.info {
+      background: #EFF6FF;
+      border-color: #BFDBFE;
+      color: #1D4ED8;
+    }
+
+    .alert-icon { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+    .alert-close { margin-left: auto; cursor: pointer; opacity: 0.6; font-size: 16px; }
+
+    /* ── FORM FIELDS ── */
+    .field {
+      margin-bottom: 18px;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--brown-dark);
+      margin-bottom: 6px;
+    }
+
+    .input-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .input-icon {
+      position: absolute;
+      left: 12px;
+      color: var(--gray-400);
+      font-size: 15px;
+      pointer-events: none;
+    }
+
+    input[type="text"],
+    input[type="email"],
+    input[type="password"] {
+      width: 100%;
+      padding: 10px 12px 10px 38px;
+      border: 1px solid var(--gray-200);
+      border-radius: 8px;
+      font-size: 14px;
+      color: var(--brown-dark);
+      background: var(--gray-50);
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      font-family: inherit;
+    }
+
+    input[type="text"]:focus,
+    input[type="email"]:focus,
+    input[type="password"]:focus {
+      border-color: var(--brown-mid);
+      box-shadow: 0 0 0 3px rgba(124, 74, 30, 0.1);
+      background: var(--white);
+    }
+
+    input.error-field {
+      border-color: var(--red);
+      background: var(--red-bg);
+    }
+
+    input.error-field:focus {
+      box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+    }
+
+    .field-error {
+      font-size: 12px;
+      color: var(--red);
+      margin-top: 4px;
+    }
+
+    .eye-btn {
+      position: absolute;
+      right: 12px;
+      cursor: pointer;
+      color: var(--gray-400);
+      font-size: 15px;
+      background: none;
+      border: none;
+      padding: 0;
+      line-height: 1;
+    }
+
+    .eye-btn:hover { color: var(--gray-600); }
+
+    /* ── PASSWORD STRENGTH ── */
+    .pwd-strength {
+      margin-top: 8px;
+    }
+
+    .pwd-strength-bars {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 4px;
+    }
+
+    .pwd-bar {
+      height: 3px;
+      flex: 1;
+      border-radius: 2px;
+      background: var(--gray-200);
+      transition: background 0.2s;
+    }
+
+    .pwd-bar.filled-weak   { background: var(--red); }
+    .pwd-bar.filled-fair   { background: var(--amber); }
+    .pwd-bar.filled-good   { background: var(--gold); }
+    .pwd-bar.filled-strong { background: var(--green); }
+
+    .pwd-strength-label {
+      font-size: 11px;
+      color: var(--gray-400);
+    }
+
+    /* ── CHECKBOX ── */
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--gray-600);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    input[type="checkbox"] {
+      width: 15px;
+      height: 15px;
+      accent-color: var(--brown-dark);
+      cursor: pointer;
+    }
+
+    .forgot-link {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--brown-mid);
+      cursor: pointer;
+      text-decoration: none;
+    }
+
+    .forgot-link:hover { text-decoration: underline; }
+
+    /* ── BUTTONS ── */
+    .btn-primary {
+      width: 100%;
+      padding: 11px 16px;
+      background: var(--brown-dark);
+      color: var(--white);
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: opacity 0.15s, background 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-primary:hover { background: var(--brown-mid); }
+    .btn-primary:active { opacity: 0.9; }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      width: 100%;
+      padding: 11px 16px;
+      background: var(--white);
+      color: var(--brown-dark);
+      border: 1px solid var(--gray-200);
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s;
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-secondary:hover { background: var(--gray-50); }
+
+    /* ── DIVIDER ── */
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 20px 0;
+    }
+
+    .divider-line {
+      flex: 1;
+      height: 1px;
+      background: var(--gray-100);
+    }
+
+    .divider-text {
+      font-size: 12px;
+      color: var(--gray-400);
+      white-space: nowrap;
+    }
+
+    /* ── SWITCH LINKS ── */
+    .switch-text {
+      text-align: center;
+      font-size: 13px;
+      color: var(--gray-400);
+      margin-top: 24px;
+    }
+
+    .switch-link {
+      font-weight: 600;
+      color: var(--brown-mid);
+      cursor: pointer;
+      text-decoration: none;
+    }
+
+    .switch-link:hover { text-decoration: underline; }
+
+    /* ── TERMS ── */
+    .terms-text {
+      font-size: 12px;
+      color: var(--gray-400);
+      text-align: center;
+      margin-top: 16px;
+      line-height: 1.5;
+    }
+
+    .terms-text a {
+      color: var(--brown-mid);
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    /* ── SUCCESS STATE (email sent) ── */
+    .success-icon-wrap {
+      width: 64px; height: 64px;
+      border-radius: 50%;
+      background: var(--green-bg);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px;
+      margin: 0 auto 20px;
+    }
+
+    /* ── LOCKED STATE ── */
+    .locked-icon-wrap {
+      width: 64px; height: 64px;
+      border-radius: 50%;
+      background: var(--red-bg);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px;
+      margin: 0 auto 20px;
+      text-align: center;
+    }
+
+    /* ── STATE TABS (for demo switching) ── */
+    .demo-bar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      background: var(--brown-dark);
+      padding: 8px 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      z-index: 100;
+      font-size: 12px;
+      color: rgba(255,255,255,0.5);
+    }
+
+    .demo-bar-label {
+      font-weight: 600;
+      color: var(--gold-light);
+      margin-right: 4px;
+    }
+
+    .demo-tab {
+      padding: 4px 12px;
+      border-radius: 20px;
+      border: 1px solid rgba(255,255,255,0.2);
+      color: rgba(255,255,255,0.6);
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 500;
+      font-family: inherit;
+      background: transparent;
+      transition: all 0.15s;
+    }
+
+    .demo-tab:hover { background: rgba(255,255,255,0.1); color: white; }
+    .demo-tab.active { background: var(--gold); color: var(--brown-dark); border-color: var(--gold); font-weight: 700; }
+
+    body { padding-top: 38px; }
+
+    /* ── REQUIRED HINT ── */
+    .required { color: var(--red); margin-left: 2px; }
+
+    /* ── PASSWORD RULES ── */
+    .pwd-rules {
+      margin-top: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .pwd-rule {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--gray-400);
+    }
+
+    .pwd-rule.met { color: var(--green); }
+    .pwd-rule-dot { font-size: 9px; }
+
+    /* ── STEPS INDICATOR (register) ── */
+    .cafe-name-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Scrollbar */
+    .form-panel::-webkit-scrollbar { width: 5px; }
+    .form-panel::-webkit-scrollbar-thumb { background: var(--gray-200); border-radius: 4px; }
+  </style>
+</head>
+<body>
+
+<!-- ── DEMO NAV BAR ── -->
+<div class="demo-bar">
+  <span class="demo-bar-label">F-01a Mockup:</span>
+  <button class="demo-tab active" onclick="showScreen('login-default')">Login</button>
+  <button class="demo-tab" onclick="showScreen('login-error')">Login · Wrong Password</button>
+  <button class="demo-tab" onclick="showScreen('login-locked')">Login · Account Locked</button>
+  <button class="demo-tab" onclick="showScreen('register')">Register</button>
+  <button class="demo-tab" onclick="showScreen('verify-banner')">Register · Verify Email</button>
+  <button class="demo-tab" onclick="showScreen('forgot')">Forgot Password</button>
+  <button class="demo-tab" onclick="showScreen('reset-sent')">Reset Link Sent</button>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     SCREEN 1 — Login (default)
+══════════════════════════════════════════════ -->
+<div id="screen-login-default" class="screen active">
+  <div class="auth-layout">
+    <div class="brand-panel">
+      <div class="brand-logo">
+        <div class="brand-logo-icon">☕</div>
+        <span class="brand-logo-text">Cafe<span>OSum</span></span>
+      </div>
+      <div class="brand-center">
+        <div class="brand-tagline">Run your cafe<br>like a <span>pro.</span></div>
+        <div class="brand-sub">Billing, orders, inventory, and analytics — all in one place, built for independent cafe owners in India.</div>
+        <div class="brand-stats">
+          <div class="brand-stat">
+            <div class="brand-stat-value">₹499</div>
+            <div class="brand-stat-label">Starting / month</div>
+          </div>
+          <div class="brand-stat">
+            <div class="brand-stat-value">5 min</div>
+            <div class="brand-stat-label">To first bill</div>
+          </div>
+          <div class="brand-stat">
+            <div class="brand-stat-value">GST</div>
+            <div class="brand-stat-label">Compliant</div>
+          </div>
+        </div>
+      </div>
+      <div class="brand-footer">© 2026 CafeOSum · Made in India 🇮🇳</div>
+      <div class="brand-illustration">☕</div>
+    </div>
+
+    <div class="form-panel">
+      <div class="form-card">
+        <div class="form-heading">Welcome back</div>
+        <div class="form-subheading">Sign in to your CafeOSum account</div>
+
+        <div class="field">
+          <label>Email address <span class="required">*</span></label>
+          <div class="input-wrap">
+            <span class="input-icon">✉</span>
+            <input type="email" placeholder="you@yourcafe.com" value="rajesh@brewbloom.in" />
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Password <span class="required">*</span></label>
+          <div class="input-wrap">
+            <span class="input-icon">🔒</span>
+            <input type="password" placeholder="Enter your password" value="••••••••••" />
+            <button class="eye-btn" title="Show password">👁</button>
+          </div>
+        </div>
+
+        <div class="checkbox-row">
+          <label class="checkbox-label">
+            <input type="checkbox" checked /> Remember me for 30 days
+          </label>
+          <a class="forgot-link" onclick="showScreen('forgot')">Forgot password?</a>
+        </div>
+
+        <button class="btn-primary" onclick="showScreen('verify-banner')">
+          Sign In →
+        </button>
+
+        <div class="divider">
+          <div class="divider-line"></div>
+          <span class="divider-text">New to CafeOSum?</span>
+          <div class="divider-line"></div>
+        </div>
+
+        <button class="btn-secondary" onclick="showScreen('register')">
+          Create a free account
+        </button>
+
+        <div class="terms-text">
+          By signing in, you agree to our <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     SCREEN 2 — Login Error (wrong password)
+══════════════════════════════════════════════ -->
+<div id="screen-login-error" class="screen">
+  <div class="auth-layout">
+    <div class="brand-panel">
+      <div class="brand-logo">
+        <div class="brand-logo-icon">☕</div>
+        <span class="brand-logo-text">Cafe<span>OSum</span></span>
+      </div>
+      <div class="brand-center">
+        <div class="brand-tagline">Run your cafe<br>like a <span>pro.</span></div>
+        <div class="brand-sub">Billing, orders, inventory, and analytics — all in one place, built for independent cafe owners in India.</div>
+        <div class="brand-stats">
+          <div class="brand-stat">
+            <div class="brand-stat-value">₹499</div>
+            <div class="brand-stat-label">Starting / month</div>
+          </div>
+          <div class="brand-stat">
+            <div class="brand-stat-value">5 min</div>
+            <div class="brand-stat-label">To first bill</div>
+          </div>
+          <div class="brand-stat">
+            <div class="brand-stat-value">GST</div>
+            <div class="brand-stat-label">Compliant</div>
+          </div>
+        </div>
+      </div>
+      <div class="brand-footer">© 2026 CafeOSum · Made in India 🇮🇳</div>
+      <div class="brand-illustration">☕</div>
+    </div>
+
+    <div class="form-panel">
+      <div class="form-card">
+        <div class="form-heading">Welcome back</div>
+        <div class="form-subheading">Sign in to your CafeOSum account</div>
+
+        <div class="alert error">
+          <span class="alert-icon">⚠</span>
+          <div>
+            <strong>Incorrect password.</strong> You have <strong>2 attempts remaining</strong> before your account is locked for 15 minutes.
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Email address <span class="required">*</span></label>
+          <div class="input-wrap">
+            <span class="input-icon">✉</span>
+            <input type="email" value="rajesh@brewbloom.in" />
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Password <span class="required">*</span></label>
+          <div class="input-wrap">
+            <span class="input-icon">🔒</span>
+            <input type="password" class="error-field" placeholder="Enter your password" />
+            <button class="eye-btn">👁</button>
+          </div>
+          <div class="field-error">Password is incorrect. Please try again.</div>
+        </div>
+
+        <div class="checkbox-row">
+          <label class="checkbox-label">
+            <input type="checkbox" checked /> Remember me for 30 days
+          </label>
+          <a class="forgot-link" onclick="showScreen('forgot')">Forgot password?</a>
+        </div>
+
+        <button class="btn-primary">Try Again →</button>
+
+        <div class="switch-text">
+          <a class="switch-link" onclick="showScreen('forgot')">Reset your password instead</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     SCREEN 3 — Login · Account Locked
+══════════════════════════════════════════════ -->
+<div id="screen-login-locked" class="screen">
+  <div class="auth-layout">
+    <div class="brand-panel">
+      <div class="brand-logo">
+        <div class="brand-logo-icon">☕</div>
+        <span class="brand-logo-text">Cafe<span>OSum</span></span>
+      </div>
+      <div class="brand-center">
+        <div class="brand-tagline">Run your cafe<br>like a <span>pro.</span></div>
+        <div class="brand-sub">Billing, orders, inventory, and analytics — all in one place, built for independent cafe owners in India.</div>
+      </div>
+      <div class="brand-footer">© 2026 CafeOSum · Made in India 🇮🇳</div>
+      <div class="brand-illustration">☕</div>
+    </div>
+
+    <div class="form-panel">
+      <div class="form-card">
+        <div style="text-align:center; margin-bottom: 24px;">
+          <div class="locked-icon-wrap">🔐</div>
+          <div class="form-heading" style="text-align:center;">Account temporarily locked</div>
+          <div class="form-subheading" style="text-align:center;">
+            Too many failed login attempts. Your account has been locked for <strong>15 minutes</strong> as a security measure.
+          </div>
+        </div>
+
+        <div class="alert warning">
+          <span class="alert-icon">📧</span>
+          <div>A security alert has been sent to <strong>rajesh@brewbloom.in</strong>. Check your email for details.</div>
+        </div>
+
+        <div style="background: var(--gray-50); border: 1px solid var(--gray-100); border-radius: 10px; padding: 16px; margin-bottom: 20px; text-align: center;">
+          <div style="font-size: 13px; color: var(--gray-400); margin-bottom: 6px;">Time remaining</div>
+          <div style="font-size: 32px; font-weight: 700; color: var(--red); font-variant-numeric: tabular-nums; letter-spacing: 2px;">14:32</div>
+        </div>
+
+        <button class="btn-primary" disabled>Sign In (Locked)</button>
+
+        <div class="divider">
+          <div class="divider-line"></div>
+          <span class="divider-text">or</span>
+          <div class="divider-line"></div>
+        </div>
+
+        <button class="btn-secondary" onclick="showScreen('forgot')">
+          Reset password now
+        </button>
+
+        <div class="switch-text" style="margin-top: 16px;">
+          Need help? <a class="switch-link" href="#">Contact support</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     SCREEN 4 — Register
+══════════════════════════════════════════════ -->
+<div id="screen-register" class="screen">
+  <div class="auth-layout">
+    <div class="brand-panel">
+      <div class="brand-logo">
+        <div class="brand-logo-icon">☕</div>
+        <span class="brand-logo-text">Cafe<span>OSum</span></span>
+      </div>
+      <div class="brand-center">
+        <div class="brand-tagline">Your cafe.<br><span>Your data.</span><br>Your growth.</div>
+        <div class="brand-sub">Join independent cafe owners across India who manage billing, inventory, and analytics with CafeOSum.</div>
+        <div class="brand-stats">
+          <div class="brand-stat">
+            <div class="brand-stat-value">500+</div>
+            <div class="brand-stat-label">Cafes onboarded</div>
+          </div>
+          <div class="brand-stat">
+            <div class="brand-stat-value">4.8★</div>
+            <div class="brand-stat-label">Owner rating</div>
+          </div>
+        </div>
+      </div>
+      <div class="brand-footer">© 2026 CafeOSum · Made in India 🇮🇳</div>
+      <div class="brand-illustration">☕</div>
+    </div>
+
+    <div class="form-panel">
+      <div class="form-card">
+        <div class="form-heading">Create your account</div>
+        <div class="form-subheading">Set up CafeOSum for your cafe — takes under 2 minutes.</div>
+
+        <div class="field">
+          <label>Cafe name <span class="required">*</span></label>
+          <div class="input-wrap">
+            <span class="input-icon">☕</span>
+            <input type="text" placeholder="e.g. Brew & Bloom Cafe" />
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Your name <span class="required">*</span></label>
+          <div class="input-wrap">
+            <span class="input-icon">👤</span>
+            <input type="text" placeholder="e.g. Rajesh Kumar" />
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Email address <span class="required">*</span></label>
+          <div class="input-wrap">
+            <span class="input-icon">✉</span>
+            <input type="email" placeholder="you@yourcafe.com" />
+          </div>
+          <div style="font-size: 12px; color: var(--gray-400); margin-top: 4px;">Used for billing receipts and account recovery.</div>
+        </div>
+
+        <div class="field">
+          <label>Password <span class="required">*</span></label>
+          <div class="input-wrap">
+            <span class="input-icon">🔒</span>
+            <input type="password" id="reg-pwd" placeholder="Min 8 chars, 1 number, 1 special char" oninput="updateStrength(this.value)" />
+            <button class="eye-btn">👁</button>
+          </div>
+          <div class="pwd-strength">
+            <div class="pwd-strength-bars">
+              <div class="pwd-bar" id="bar1"></div>
+              <div class="pwd-bar" id="bar2"></div>
+              <div class="pwd-bar" id="bar3"></div>
+              <div class="pwd-bar" id="bar4"></div>
+            </div>
+            <div class="pwd-strength-label" id="strength-label">Enter a password</div>
+          </div>
+          <div class="pwd-rules" id="pwd-rules">
+            <div class="pwd-rule" id="rule-len"><span class="pwd-rule-dot">○</span> At least 8 characters</div>
+            <div class="pwd-rule" id="rule-num"><span class="pwd-rule-dot">○</span> At least one number</div>
+            <div class="pwd-rule" id="rule-spc"><span class="pwd-rule-dot">○</span> At least one special character</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Confirm password <span class="required">*</span></label>
+          <div class="input-wrap">
+            <span class="input-icon">🔒</span>
+            <input type="password" placeholder="Re-enter your password" />
+            <button class="eye-btn">👁</button>
+          </div>
+        </div>
+
+        <button class="btn-primary" onclick="showScreen('verify-banner')">
+          Create Account →
+        </button>
+
+        <div class="terms-text">
+          By creating an account, you agree to our <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>. GST-compliant billing from day one.
+        </div>
+
+        <div class="switch-text">
+          Already have an account? <a class="switch-link" onclick="showScreen('login-default')">Sign in</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     SCREEN 5 — Register · Email Verification Banner
+     (post-registration, lands on dashboard with banner)
+══════════════════════════════════════════════ -->
+<div id="screen-verify-banner" class="screen">
+  <div class="auth-layout" style="flex-direction: column;">
+
+    <!-- Simulated dashboard top with verification banner -->
+    <div style="background: #1E3A5F; padding: 10px 24px; display: flex; align-items: center; gap: 10px; font-size: 13px; color: white;">
+      <span>📧</span>
+      <span style="flex: 1;">
+        <strong>Verify your email address.</strong> We've sent a confirmation link to <strong>rajesh@brewbloom.in</strong> — check your inbox to activate all features.
+      </span>
+      <button style="padding: 5px 14px; background: white; color: #1E3A5F; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit;">Resend email</button>
+      <span style="cursor: pointer; opacity: 0.6; font-size: 18px; line-height: 1;">✕</span>
+    </div>
+
+    <!-- Simulated onboarding wizard prompt -->
+    <div style="flex: 1; background: var(--gray-50); display: flex; align-items: center; justify-content: center; padding: 40px;">
+      <div style="background: white; border: 1px solid var(--gray-100); border-radius: 16px; padding: 40px; max-width: 500px; width: 100%; text-align: center; box-shadow: 0 4px 24px rgba(59,31,14,0.06);">
+
+        <div style="width: 64px; height: 64px; background: var(--green-bg); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 28px; margin: 0 auto 20px;">✓</div>
+
+        <div style="font-size: 22px; font-weight: 700; color: var(--brown-dark); margin-bottom: 8px;">Account created!</div>
+        <div style="font-size: 14px; color: var(--gray-400); margin-bottom: 28px; line-height: 1.6;">
+          Welcome to CafeOSum, <strong>Rajesh</strong>. Let's set up <strong>Brew &amp; Bloom Cafe</strong> so you can start taking orders.
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; text-align: left;">
+          <div style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--gray-50); border-radius: 10px; border: 1px solid var(--gray-100);">
+            <span style="font-size: 20px;">🏪</span>
+            <div style="flex: 1;">
+              <div style="font-size: 13px; font-weight: 600; color: var(--brown-dark);">Set up your cafe profile</div>
+              <div style="font-size: 12px; color: var(--gray-400);">Name, address, GSTIN, logo</div>
+            </div>
+            <span style="font-size: 12px; color: var(--gray-400);">Step 1 of 5</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--gray-50); border-radius: 10px; border: 1px solid var(--gray-100); opacity: 0.5;">
+            <span style="font-size: 20px;">📋</span>
+            <div style="flex: 1;">
+              <div style="font-size: 13px; font-weight: 600; color: var(--brown-dark);">Add your menu items</div>
+              <div style="font-size: 12px; color: var(--gray-400);">Name, price, category, GST rate</div>
+            </div>
+            <span style="font-size: 12px; color: var(--gray-400);">Step 2 of 5</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--gray-50); border-radius: 10px; border: 1px solid var(--gray-100); opacity: 0.5;">
+            <span style="font-size: 20px;">🪑</span>
+            <div style="flex: 1;">
+              <div style="font-size: 13px; font-weight: 600; color: var(--brown-dark);">Configure your tables</div>
+              <div style="font-size: 12px; color: var(--gray-400);">Table names, seating capacity</div>
+            </div>
+            <span style="font-size: 12px; color: var(--gray-400);">Step 3 of 5</span>
+          </div>
+        </div>
+
+        <button class="btn-primary" style="max-width: 280px; margin: 0 auto;">
+          Start Setup Wizard →
+        </button>
+
+        <div style="font-size: 12px; color: var(--gray-400); margin-top: 14px; cursor: pointer;">
+          Skip for now — I'll set up later
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     SCREEN 6 — Forgot Password
+══════════════════════════════════════════════ -->
+<div id="screen-forgot" class="screen">
+  <div class="auth-layout">
+    <div class="brand-panel">
+      <div class="brand-logo">
+        <div class="brand-logo-icon">☕</div>
+        <span class="brand-logo-text">Cafe<span>OSum</span></span>
+      </div>
+      <div class="brand-center">
+        <div class="brand-tagline">We've got<br>you <span>covered.</span></div>
+        <div class="brand-sub">Enter your registered email and we'll send you a secure reset link. The link expires in 1 hour.</div>
+      </div>
+      <div class="brand-footer">© 2026 CafeOSum · Made in India 🇮🇳</div>
+      <div class="brand-illustration">☕</div>
+    </div>
+
+    <div class="form-panel">
+      <div class="form-card">
+        <div style="margin-bottom: 20px;">
+          <a onclick="showScreen('login-default')" style="font-size: 13px; color: var(--gray-400); cursor: pointer; display: flex; align-items: center; gap: 4px; margin-bottom: 20px;">
+            ← Back to login
+          </a>
+        </div>
+
+        <div class="form-heading">Reset your password</div>
+        <div class="form-subheading">Enter your registered email and we'll send a secure reset link. Link expires in 1 hour.</div>
+
+        <div class="field">
+          <label>Registered email address <span class="required">*</span></label>
+          <div class="input-wrap">
+            <span class="input-icon">✉</span>
+            <input type="email" placeholder="you@yourcafe.com" />
+          </div>
+        </div>
+
+        <button class="btn-primary" onclick="showScreen('reset-sent')">
+          Send Reset Link →
+        </button>
+
+        <div class="switch-text">
+          Remembered it? <a class="switch-link" onclick="showScreen('login-default')">Back to login</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     SCREEN 7 — Reset Link Sent (success)
+══════════════════════════════════════════════ -->
+<div id="screen-reset-sent" class="screen">
+  <div class="auth-layout">
+    <div class="brand-panel">
+      <div class="brand-logo">
+        <div class="brand-logo-icon">☕</div>
+        <span class="brand-logo-text">Cafe<span>OSum</span></span>
+      </div>
+      <div class="brand-center">
+        <div class="brand-tagline">Check your<br><span>inbox.</span></div>
+        <div class="brand-sub">The reset link is on its way. If you don't see it in 2 minutes, check your spam folder.</div>
+      </div>
+      <div class="brand-footer">© 2026 CafeOSum · Made in India 🇮🇳</div>
+      <div class="brand-illustration">☕</div>
+    </div>
+
+    <div class="form-panel">
+      <div class="form-card" style="text-align: center;">
+        <div class="success-icon-wrap">📧</div>
+
+        <div class="form-heading" style="text-align:center;">Check your email</div>
+        <div class="form-subheading" style="text-align:center;">
+          We've sent a password reset link to <br>
+          <strong style="color: var(--brown-dark);">rajesh@brewbloom.in</strong>
+        </div>
+
+        <div class="alert info" style="text-align:left;">
+          <span class="alert-icon">⏱</span>
+          <div>This link expires in <strong>1 hour</strong>. If you don't receive it within 2 minutes, check your spam folder.</div>
+        </div>
+
+        <div style="background: var(--gray-50); border: 1px solid var(--gray-100); border-radius: 10px; padding: 14px 16px; text-align:left; margin-bottom: 20px;">
+          <div style="font-size: 12px; font-weight: 600; color: var(--gray-600); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">What to do next</div>
+          <div style="font-size: 13px; color: var(--gray-600); display: flex; flex-direction: column; gap: 6px; line-height: 1.5;">
+            <div>① Open the email from <strong>noreply@cafeosum.in</strong></div>
+            <div>② Click <em>"Reset my password"</em></div>
+            <div>③ Choose a new password and sign in</div>
+          </div>
+        </div>
+
+        <button class="btn-secondary" onclick="showScreen('forgot')" style="margin-top: 0;">
+          Resend reset email
+        </button>
+
+        <div class="switch-text">
+          <a class="switch-link" onclick="showScreen('login-default')">← Back to login</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<script>
+  function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.demo-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('screen-' + id).classList.add('active');
+    document.querySelectorAll('.demo-tab').forEach(t => {
+      if (t.getAttribute('onclick') === `showScreen('${id}')`) t.classList.add('active');
+    });
+  }
+
+  function updateStrength(val) {
+    const bars  = [document.getElementById('bar1'), document.getElementById('bar2'), document.getElementById('bar3'), document.getElementById('bar4')];
+    const label = document.getElementById('strength-label');
+    const rLen  = document.getElementById('rule-len');
+    const rNum  = document.getElementById('rule-num');
+    const rSpc  = document.getElementById('rule-spc');
+
+    const hasLen = val.length >= 8;
+    const hasNum = /\d/.test(val);
+    const hasSpc = /[^a-zA-Z0-9]/.test(val);
+
+    rLen.className = 'pwd-rule' + (hasLen ? ' met' : '');
+    rLen.innerHTML = `<span class="pwd-rule-dot">${hasLen ? '✓' : '○'}</span> At least 8 characters`;
+    rNum.className = 'pwd-rule' + (hasNum ? ' met' : '');
+    rNum.innerHTML = `<span class="pwd-rule-dot">${hasNum ? '✓' : '○'}</span> At least one number`;
+    rSpc.className = 'pwd-rule' + (hasSpc ? ' met' : '');
+    rSpc.innerHTML = `<span class="pwd-rule-dot">${hasSpc ? '✓' : '○'}</span> At least one special character`;
+
+    const score = (hasLen ? 1 : 0) + (hasNum ? 1 : 0) + (hasSpc ? 1 : 0) + (val.length >= 12 ? 1 : 0);
+
+    bars.forEach(b => b.className = 'pwd-bar');
+
+    if (val.length === 0) {
+      label.textContent = 'Enter a password';
+      label.style.color = 'var(--gray-400)';
+    } else if (score === 1) {
+      bars[0].classList.add('filled-weak');
+      label.textContent = 'Weak';
+      label.style.color = 'var(--red)';
+    } else if (score === 2) {
+      bars[0].classList.add('filled-fair'); bars[1].classList.add('filled-fair');
+      label.textContent = 'Fair';
+      label.style.color = 'var(--amber)';
+    } else if (score === 3) {
+      bars[0].classList.add('filled-good'); bars[1].classList.add('filled-good'); bars[2].classList.add('filled-good');
+      label.textContent = 'Good';
+      label.style.color = 'var(--gold)';
+    } else {
+      bars.forEach(b => b.classList.add('filled-strong'));
+      label.textContent = 'Strong ✓';
+      label.style.color = 'var(--green)';
+    }
+  }
+</script>
+
+</body>
+</html>

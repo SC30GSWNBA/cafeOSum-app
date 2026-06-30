@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CafeOSum — Analytics Dashboard (F-08)</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --brown-dark:#3B1F0E; --brown-mid:#7C4A1E; --gold:#D4A017; --gold-light:#F0C040;
+      --cream:#FDF8F2; --white:#FFFFFF; --gray-50:#F9F5F0; --gray-100:#F0EBE3;
+      --gray-200:#DDD5C8; --gray-400:#9E8E7E; --gray-600:#6B5B4E;
+      --green:#2E8B57; --green-bg:#E8F5EE; --green-border:#86EFAC;
+      --amber:#D97706; --amber-bg:#FEF3C7; --amber-border:#FDE68A;
+      --red:#DC2626; --red-bg:#FEE2E2; --red-border:#FCA5A5;
+      --blue:#2563EB; --blue-bg:#EFF6FF; --blue-border:#BFDBFE;
+      --sidebar-w:240px; --header-h:56px;
+    }
+    body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--gray-50); color:var(--brown-dark); padding-top:36px; height:100vh; overflow:hidden; }
+
+    /* DEMO BAR */
+    .demo-bar { position:fixed; top:0; left:0; right:0; z-index:300; background:var(--brown-dark); padding:6px 16px; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+    .demo-label { font-size:11px; font-weight:700; color:var(--gold-light); margin-right:4px; white-space:nowrap; }
+    .demo-tab { padding:3px 11px; border-radius:20px; border:1px solid rgba(255,255,255,0.2); color:rgba(255,255,255,0.6); cursor:pointer; font-size:11px; font-weight:500; font-family:inherit; background:transparent; transition:all 0.15s; white-space:nowrap; }
+    .demo-tab:hover { background:rgba(255,255,255,0.1); color:white; }
+    .demo-tab.active { background:var(--gold); color:var(--brown-dark); border-color:var(--gold); font-weight:700; }
+
+    /* SIDEBAR */
+    .sidebar { width:var(--sidebar-w); background:var(--white); border-right:1px solid var(--gray-100); position:fixed; top:36px; left:0; bottom:0; display:flex; flex-direction:column; z-index:200; }
+    .sidebar-logo { padding:16px 20px; border-bottom:1px solid var(--gray-100); display:flex; align-items:center; gap:10px; }
+    .logo-icon { width:34px; height:34px; background:var(--brown-dark); border-radius:9px; display:flex; align-items:center; justify-content:center; color:var(--gold-light); font-size:17px; }
+    .logo-text { font-size:16px; font-weight:700; color:var(--brown-dark); }
+    .logo-text span { color:var(--gold); }
+    nav { flex:1; padding:14px 12px; display:flex; flex-direction:column; gap:2px; overflow-y:auto; }
+    .nav-label { font-size:10px; font-weight:600; color:var(--gray-400); letter-spacing:0.8px; text-transform:uppercase; padding:10px 8px 4px; }
+    .nav-item { display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:500; color:var(--gray-600); transition:background 0.15s; }
+    .nav-item:hover { background:var(--gray-50); color:var(--brown-dark); }
+    .nav-item.active { background:var(--cream); color:var(--brown-dark); font-weight:600; }
+    .nav-icon { font-size:15px; width:20px; text-align:center; }
+    .sidebar-footer { padding:12px; border-top:1px solid var(--gray-100); }
+    .logout-btn { display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:8px; cursor:pointer; font-size:13px; font-weight:500; color:var(--red); background:var(--red-bg); }
+
+    /* MAIN */
+    .main-wrapper { margin-left:var(--sidebar-w); height:calc(100vh - 36px); display:flex; flex-direction:column; overflow:hidden; }
+    .topbar { height:var(--header-h); background:var(--white); border-bottom:1px solid var(--gray-100); display:flex; align-items:center; padding:0 18px; gap:10px; flex-shrink:0; }
+    .topbar-title { font-size:18px; font-weight:700; color:var(--brown-dark); }
+    .spacer { flex:1; }
+    .topbar-btn { padding:7px 14px; border-radius:8px; border:none; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; display:flex; align-items:center; gap:6px; }
+    .topbar-btn.primary { background:var(--brown-dark); color:white; }
+    .topbar-btn.secondary { background:var(--gray-50); color:var(--brown-dark); border:1px solid var(--gray-200); }
+    .user-chip { display:flex; align-items:center; gap:8px; padding:4px 10px 4px 4px; border-radius:20px; background:var(--gray-50); border:1px solid var(--gray-200); }
+    .user-avatar { width:26px; height:26px; border-radius:50%; background:var(--brown-mid); color:white; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:600; }
+    .user-name { font-size:12px; font-weight:600; color:var(--brown-dark); }
+    .content-area { flex:1; overflow-y:auto; padding:20px 24px; }
+    .view { display:none; }
+    .view.active { display:block; }
+
+    /* KPI CARDS */
+    .kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:20px; }
+    .kpi-card { background:var(--white); border:1px solid var(--gray-100); border-radius:12px; padding:16px; }
+    .kpi-label { font-size:11px; font-weight:600; color:var(--gray-400); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px; }
+    .kpi-value { font-size:26px; font-weight:800; color:var(--brown-dark); line-height:1; }
+    .kpi-change { display:inline-flex; align-items:center; gap:3px; font-size:12px; font-weight:700; padding:2px 7px; border-radius:20px; margin-top:6px; }
+    .kpi-change.up   { background:var(--green-bg); color:var(--green); }
+    .kpi-change.down { background:var(--red-bg); color:var(--red); }
+    .kpi-change.flat { background:var(--gray-100); color:var(--gray-400); }
+
+    /* SECTION HEADER */
+    .section-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:14px; }
+    .section-title { font-size:15px; font-weight:700; color:var(--brown-dark); }
+    .section-sub { font-size:12px; color:var(--gray-400); margin-top:3px; }
+
+    /* BAR CHART */
+    .chart-wrap { background:var(--white); border:1px solid var(--gray-100); border-radius:12px; padding:18px 18px 14px; }
+    .chart-title { font-size:13px; font-weight:700; color:var(--brown-dark); margin-bottom:14px; display:flex; align-items:center; justify-content:space-between; }
+    .chart-title span { font-size:11px; color:var(--gray-400); font-weight:400; }
+    .chart-body { display:flex; align-items:flex-end; gap:5px; height:140px; border-bottom:1px solid var(--gray-100); }
+    .bar-col { display:flex; flex-direction:column; align-items:center; justify-content:flex-end; flex:1; height:100%; }
+    .bar-val { font-size:9px; color:var(--gray-400); margin-bottom:2px; white-space:nowrap; }
+    .bar { width:100%; border-radius:4px 4px 0 0; background:var(--brown-mid); min-height:3px; }
+    .bar.peak { background:var(--gold); }
+    .chart-labels { display:flex; gap:5px; margin-top:5px; }
+    .bar-lbl { flex:1; text-align:center; font-size:9px; color:var(--gray-400); }
+    .chart-note { font-size:11px; color:var(--gray-400); margin-top:8px; }
+
+    /* PERIOD LABEL BAR */
+    .period-bar { display:flex; align-items:center; gap:10px; margin-bottom:18px; flex-wrap:wrap; }
+    .period-chip { font-size:14px; font-weight:700; color:var(--brown-dark); }
+
+    /* TOP ITEMS */
+    .tab-toggle { display:flex; gap:0; margin-bottom:14px; background:var(--gray-100); border-radius:8px; padding:3px; width:fit-content; }
+    .ttbtn { padding:6px 16px; border-radius:6px; border:none; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit; color:var(--gray-400); background:transparent; transition:all 0.15s; }
+    .ttbtn.active { background:var(--white); color:var(--brown-dark); box-shadow:0 1px 3px rgba(0,0,0,0.08); }
+
+    /* ANALYTICS TABLE */
+    .tbl-wrap { background:var(--white); border:1px solid var(--gray-100); border-radius:12px; overflow:hidden; }
+    .atbl { width:100%; border-collapse:collapse; }
+    .atbl th { text-align:left; padding:10px 14px; background:var(--gray-50); color:var(--gray-400); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; border-bottom:1px solid var(--gray-100); }
+    .atbl td { padding:11px 14px; border-bottom:1px solid var(--gray-100); font-size:13px; vertical-align:middle; }
+    .atbl tr:last-child td { border-bottom:none; }
+    .atbl tr:hover td { background:var(--gray-50); }
+    .rank { font-size:12px; font-weight:700; color:var(--gray-400); width:24px; text-align:center; display:inline-block; }
+    .item-name { font-weight:600; color:var(--brown-dark); }
+    .item-cat { font-size:11px; color:var(--gray-400); margin-top:2px; }
+    .wow { display:inline-flex; align-items:center; gap:2px; font-size:11px; font-weight:700; padding:2px 7px; border-radius:20px; }
+    .wow.up   { background:var(--green-bg); color:var(--green); }
+    .wow.down { background:var(--red-bg); color:var(--red); }
+    .wow.flat { background:var(--gray-100); color:var(--gray-400); }
+
+    /* PERF BAR */
+    .perf-bar-bg { width:90px; height:6px; background:var(--gray-100); border-radius:3px; display:inline-block; vertical-align:middle; }
+    .perf-bar-fill { height:100%; border-radius:3px; background:var(--brown-mid); display:block; }
+
+    /* GST */
+    .gst-header { display:flex; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap; }
+    .gst-chip { padding:6px 14px; background:var(--brown-dark); color:white; border-radius:20px; font-size:13px; font-weight:600; }
+    .export-btn { padding:6px 14px; border-radius:8px; border:1px solid var(--gray-200); background:var(--white); font-size:12px; font-weight:600; color:var(--gray-600); cursor:pointer; font-family:inherit; display:flex; align-items:center; gap:5px; }
+    .export-btn:hover { background:var(--gray-50); border-color:var(--brown-mid); }
+    .gst-total td { font-weight:700; background:var(--gray-50); border-top:2px solid var(--gray-200) !important; }
+
+    /* CUSTOM RANGE */
+    .custom-card { background:var(--white); border:1px solid var(--gray-100); border-radius:12px; padding:24px; max-width:500px; }
+    .form-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px; }
+    .form-group { display:flex; flex-direction:column; gap:5px; }
+    .form-label { font-size:12px; font-weight:600; color:var(--gray-600); }
+    .form-input { padding:9px 12px; border:1.5px solid var(--gray-200); border-radius:8px; font-size:13px; color:var(--brown-dark); background:var(--gray-50); outline:none; font-family:inherit; }
+    .form-input:focus { border-color:var(--brown-mid); background:white; }
+    .btn-primary { padding:9px 20px; background:var(--brown-dark); color:white; border:none; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; }
+    .placeholder-box { margin-top:18px; background:var(--gray-50); border:1.5px dashed var(--gray-200); border-radius:10px; padding:28px; text-align:center; color:var(--gray-400); font-size:13px; line-height:1.8; }
+  </style>
+</head>
+<body>
+
+<!-- DEMO BAR -->
+<div class="demo-bar">
+  <span class="demo-label">F-08 Analytics:</span>
+  <button class="demo-tab active" onclick="show('today')">Today (AC-08.1,2,3)</button>
+  <button class="demo-tab"        onclick="show('week')">This Week (AC-08.1)</button>
+  <button class="demo-tab"        onclick="show('month')">This Month (AC-08.1)</button>
+  <button class="demo-tab"        onclick="show('custom')">Custom Range (AC-08.1)</button>
+  <button class="demo-tab"        onclick="show('topchart')">Top Items (AC-08.4)</button>
+  <button class="demo-tab"        onclick="show('tables')">Table Performance (AC-08.5)</button>
+  <button class="demo-tab"        onclick="show('staff')">Staff Performance (AC-08.6)</button>
+  <button class="demo-tab"        onclick="show('gst')">GST Report (AC-08.7)</button>
+</div>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">☕</div>
+    <span class="logo-text">Cafe<span>OSum</span></span>
+  </div>
+  <nav>
+    <span class="nav-label">Main</span>
+    <div class="nav-item"><span class="nav-icon">⊞</span> Dashboard</div>
+    <div class="nav-item"><span class="nav-icon">☰</span> Menu</div>
+    <div class="nav-item"><span class="nav-icon">🧾</span> Billing / POS</div>
+    <div class="nav-item"><span class="nav-icon">📋</span> Orders</div>
+    <span class="nav-label">Floor</span>
+    <div class="nav-item"><span class="nav-icon">🪑</span> Tables</div>
+    <span class="nav-label">Management</span>
+    <div class="nav-item"><span class="nav-icon">📦</span> Inventory</div>
+    <div class="nav-item"><span class="nav-icon">👷</span> Staff &amp; PINs</div>
+    <span class="nav-label">Insights</span>
+    <div class="nav-item active"><span class="nav-icon">📈</span> Analytics</div>
+    <div class="nav-item"><span class="nav-icon">⚙</span> Settings</div>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="logout-btn"><span>↪</span> Logout</div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main-wrapper">
+  <header class="topbar">
+    <span class="topbar-title">📈 Analytics</span>
+    <div class="spacer"></div>
+    <button class="topbar-btn secondary">📄 Export PDF</button>
+    <button class="topbar-btn secondary">📊 Export CSV</button>
+    <div class="user-chip">
+      <div class="user-avatar">RK</div>
+      <span class="user-name">Rajesh K.</span>
+    </div>
+  </header>
+
+  <div class="content-area">
+
+    <!-- TODAY -->
+    <div class="view active" id="view-today"><div id="period-today"></div></div>
+
+    <!-- THIS WEEK -->
+    <div class="view" id="view-week"><div id="period-week"></div></div>
+
+    <!-- THIS MONTH -->
+    <div class="view" id="view-month"><div id="period-month"></div></div>
+
+    <!-- CUSTOM RANGE -->
+    <div class="view" id="view-custom">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Custom Date Range (AC-08.1)</div>
+          <div class="section-sub">Select any window to load analytics for that period</div>
+        </div>
+      </div>
+      <div class="custom-card">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">From Date</label>
+            <input type="date" class="form-input" value="2026-06-01" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">To Date</label>
+            <input type="date" class="form-input" value="2026-06-14" />
+          </div>
+        </div>
+        <button class="btn-primary">Apply Range →</button>
+        <div class="placeholder-box">
+          📊 Select a date range above and click <strong>Apply Range</strong>.<br />
+          Dashboard loads all AC-08.2 KPI cards, hourly revenue chart (AC-08.3),<br />
+          and top-items table (AC-08.4) for the chosen window.
+        </div>
+      </div>
+    </div>
+
+    <!-- TOP ITEMS -->
+    <div class="view" id="view-topchart">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Top 10 Items (AC-08.4) — This Week</div>
+          <div class="section-sub">Week-on-week change vs. previous 7 days</div>
+        </div>
+      </div>
+      <div class="tab-toggle">
+        <button class="ttbtn active" onclick="switchTopTab('qty',this)">By Quantity Sold</button>
+        <button class="ttbtn"        onclick="switchTopTab('rev',this)">By Revenue</button>
+      </div>
+      <div class="tbl-wrap" id="top-wrap"></div>
+    </div>
+
+    <!-- TABLE PERFORMANCE -->
+    <div class="view" id="view-tables">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Table Performance (AC-08.5) — This Month</div>
+          <div class="section-sub">Revenue per table and average customer turnaround time · June 2026</div>
+        </div>
+      </div>
+      <div class="tbl-wrap" id="tables-wrap"></div>
+    </div>
+
+    <!-- STAFF PERFORMANCE -->
+    <div class="view" id="view-staff">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Staff Performance (AC-08.6) — This Month</div>
+          <div class="section-sub">Orders handled and bills generated per staff member · June 2026</div>
+        </div>
+      </div>
+      <div class="tbl-wrap" id="staff-wrap"></div>
+    </div>
+
+    <!-- GST REPORT -->
+    <div class="view" id="view-gst">
+      <div class="gst-header">
+        <span class="gst-chip">📅 June 2026</span>
+        <span style="font-size:12px;color:var(--gray-400);">AC-08.7 — CGST + SGST breakdown by category</span>
+        <div style="display:flex;gap:8px;margin-left:auto;">
+          <button class="export-btn">📄 Export PDF</button>
+          <button class="export-btn">📊 Export CSV</button>
+        </div>
+      </div>
+      <div class="tbl-wrap" id="gst-wrap"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ─── DATA ─── */
+
+// GST-inclusive revenue model: CGST 2.5% + SGST 2.5% on net; total bill = net + 5%
+const PERIODS = {
+  today: {
+    chip: 'Today — 29 Jun 2026 (Sun)',
+    revenue:'₹8,240', bills:32, avgBill:'₹257', gst:'₹392',
+    revChg:{t:'+14.8% vs last Sunday',d:'up'}, billChg:{t:'+3 vs last Sunday',d:'up'},
+    avgChg:{t:'+₹11 vs last Sunday',d:'up'},   gstChg:{t:'5% applied (CGST 2.5% + SGST 2.5%)',d:'flat'},
+    hours:[
+      {h:'9am',v:300},{h:'10am',v:440},{h:'11am',v:600},{h:'12pm',v:980},
+      {h:'1pm',v:1140},{h:'2pm',v:760},{h:'3pm',v:480},{h:'4pm',v:540},
+      {h:'5pm',v:700},{h:'6pm',v:880},{h:'7pm',v:740},{h:'8pm',v:540},{h:'9pm',v:240},
+    ],
+    peak:'1pm',
+    note:'AC-08.3 — Revenue by hour of day · Peak: 1pm (₹1,140) · AC-08.8 chart readable without h-scroll',
+  },
+  week: {
+    chip: 'This Week — 23–29 Jun 2026',
+    revenue:'₹52,480', bills:198, avgBill:'₹265', gst:'₹2,499',
+    revChg:{t:'+9.2% vs prev week',d:'up'}, billChg:{t:'+18 vs prev week',d:'up'},
+    avgChg:{t:'+₹8 vs prev week',d:'up'},   gstChg:{t:'5% applied',d:'flat'},
+    hours:[
+      {h:'9am',v:1820},{h:'10am',v:2640},{h:'11am',v:3600},{h:'12pm',v:5880},
+      {h:'1pm',v:6840},{h:'2pm',v:4560},{h:'3pm',v:2880},{h:'4pm',v:3240},
+      {h:'5pm',v:4200},{h:'6pm',v:5280},{h:'7pm',v:4440},{h:'8pm',v:3240},{h:'9pm',v:1440},
+    ],
+    peak:'1pm',
+    note:'AC-08.3 — Revenue by hour (summed across week) · Peak: 1pm (₹6,840)',
+  },
+  month: {
+    chip: 'This Month — June 2026',
+    revenue:'₹2,14,600', bills:812, avgBill:'₹264', gst:'₹9,740',
+    revChg:{t:'+7.4% vs May 2026',d:'up'}, billChg:{t:'+58 vs May 2026',d:'up'},
+    avgChg:{t:'+₹5 vs May 2026',d:'up'},   gstChg:{t:'5% applied · see GST Report tab',d:'flat'},
+    hours:[
+      {h:'9am',v:7280},{h:'10am',v:10560},{h:'11am',v:14400},{h:'12pm',v:23520},
+      {h:'1pm',v:27360},{h:'2pm',v:18240},{h:'3pm',v:11520},{h:'4pm',v:12960},
+      {h:'5pm',v:16800},{h:'6pm',v:21120},{h:'7pm',v:17760},{h:'8pm',v:12960},{h:'9pm',v:5760},
+    ],
+    peak:'1pm',
+    note:'AC-08.3 — Revenue by hour (summed across June) · Peak: 1pm (₹27,360)',
+  },
+};
+
+// Top 10 items this week
+const TOP_ITEMS = [
+  {rank:1, name:'Masala Chai',      cat:'Hot Beverages',  qty:148, rev:7400,  wowQ:'+12%',wowR:'+12%',dir:'up'},
+  {rank:2, name:'Cappuccino',       cat:'Hot Beverages',  qty:112, rev:11200, wowQ:'+8%', wowR:'+8%', dir:'up'},
+  {rank:3, name:'Vada Pav',         cat:'Snacks',         qty:96,  rev:4800,  wowQ:'-3%', wowR:'-3%', dir:'down'},
+  {rank:4, name:'Cold Coffee',      cat:'Cold Beverages', qty:84,  rev:8400,  wowQ:'+21%',wowR:'+21%',dir:'up'},
+  {rank:5, name:'Blueberry Muffin', cat:'Bakery',         qty:76,  rev:5700,  wowQ:'+5%', wowR:'+5%', dir:'up'},
+  {rank:6, name:'Veg Sandwich',     cat:'Snacks',         qty:68,  rev:6800,  wowQ:'-8%', wowR:'-8%', dir:'down'},
+  {rank:7, name:'Masala Dosa',      cat:'Mains',          qty:52,  rev:6240,  wowQ:'+2%', wowR:'+2%', dir:'up'},
+  {rank:8, name:'Green Tea',        cat:'Hot Beverages',  qty:48,  rev:1920,  wowQ:'-15%',wowR:'-15%',dir:'down'},
+  {rank:9, name:'Latte',            cat:'Hot Beverages',  qty:44,  rev:4840,  wowQ:'+18%',wowR:'+18%',dir:'up'},
+  {rank:10,name:'Samosa (2 pcs)',   cat:'Snacks',         qty:36,  rev:1440,  wowQ:'-5%', wowR:'-5%', dir:'down'},
+];
+
+// Table performance (June 2026)
+const TABLE_PERF = [
+  {table:'T1 — Window Seat', cap:4, revenue:9840,  bills:38, avgMin:28},
+  {table:'T2 — Corner',      cap:2, revenue:8420,  bills:34, avgMin:22},
+  {table:'T3 — Centre',      cap:6, revenue:7960,  bills:29, avgMin:31},
+  {table:'T4 — Garden',      cap:4, revenue:6840,  bills:42, avgMin:18},
+  {table:'T5 — Sofa',        cap:4, revenue:5920,  bills:18, avgMin:45},
+  {table:'T6 — Bar Counter', cap:2, revenue:4680,  bills:36, avgMin:15},
+];
+
+// Staff performance (June 2026)
+const STAFF_PERF = [
+  {name:'Rajesh K.', role:'Owner',          orders:84, bills:52, revenue:14280},
+  {name:'Priya S.',  role:'Cashier',        orders:72, bills:48, revenue:12840},
+  {name:'Suresh M.', role:'Waiter',         orders:68, bills:42, revenue:11200},
+  {name:'Kavya R.',  role:'Waiter',         orders:54, bills:38, revenue:8960},
+  {name:'Mohan T.',  role:'Kitchen Staff',  orders:12, bills:0,  revenue:null},
+];
+
+// GST report — net (ex-GST) taxable sales; CGST=2.5%, SGST=2.5%
+// Total net taxable: 204,000 → GST: 9,740 → Gross: 213,740 ≈ ₹2,14,600 (incl rounding + exempt items)
+const GST_DATA = [
+  {cat:'Hot Beverages',  rate:'5%', sales:68000,  cgst:1700, sgst:1700, total:3400},
+  {cat:'Cold Beverages', rate:'5%', sales:28000,  cgst:700,  sgst:700,  total:1400},
+  {cat:'Snacks',         rate:'5%', sales:40000,  cgst:1000, sgst:1000, total:2000},
+  {cat:'Mains',          rate:'5%', sales:36000,  cgst:900,  sgst:900,  total:1800},
+  {cat:'Bakery',         rate:'5%', sales:16000,  cgst:400,  sgst:400,  total:800},
+  {cat:'Exempt Items',   rate:'0%', sales:16000,  cgst:0,    sgst:0,    total:0},
+];
+
+/* ─── HELPERS ─── */
+function inr(n) { return '₹' + n.toLocaleString('en-IN'); }
+function chgHtml(c) {
+  const icon = c.d === 'up' ? '▲' : c.d === 'down' ? '▼' : '—';
+  return `<div class="kpi-change ${c.d}">${icon} ${c.t}</div>`;
+}
+function wowHtml(pct, dir) {
+  const icon = dir === 'up' ? '▲' : '▼';
+  return `<span class="wow ${dir}">${icon} ${pct}</span>`;
+}
+
+/* ─── RENDER PERIOD ─── */
+function renderPeriod(key) {
+  const d = PERIODS[key];
+  const maxV = Math.max(...d.hours.map(h => h.v));
+  const CHART_H = 120; // px
+
+  const bars = d.hours.map(h => {
+    const px = Math.max(3, Math.round((h.v / maxV) * CHART_H));
+    const vl = h.v >= 1000 ? '₹' + (h.v/1000).toFixed(1) + 'k' : '₹' + h.v;
+    const pk = h.h === d.peak;
+    return `<div class="bar-col">
+      <span class="bar-val">${vl}</span>
+      <div class="bar${pk?' peak':''}" style="height:${px}px"></div>
+    </div>`;
+  }).join('');
+
+  const labels = d.hours.map(h => `<span class="bar-lbl">${h.h}</span>`).join('');
+
+  document.getElementById('period-' + key).innerHTML = `
+    <div class="period-bar"><span class="period-chip">${d.chip}</span></div>
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">Total Revenue (AC-08.2)</div>
+        <div class="kpi-value">${d.revenue}</div>
+        ${chgHtml(d.revChg)}
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Bills Generated</div>
+        <div class="kpi-value">${d.bills}</div>
+        ${chgHtml(d.billChg)}
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Avg Bill Value</div>
+        <div class="kpi-value">${d.avgBill}</div>
+        ${chgHtml(d.avgChg)}
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">GST Collected</div>
+        <div class="kpi-value">${d.gst}</div>
+        ${chgHtml(d.gstChg)}
+      </div>
+    </div>
+    <div class="chart-wrap">
+      <div class="chart-title">Revenue by Hour of Day (AC-08.3) <span>Gold bar = peak hour</span></div>
+      <div class="chart-body">${bars}</div>
+      <div class="chart-labels">${labels}</div>
+      <div class="chart-note">${d.note}</div>
+    </div>`;
+}
+
+/* ─── TOP ITEMS ─── */
+let topKey = 'qty';
+
+function renderTopItems() {
+  const sorted = [...TOP_ITEMS].sort((a,b) => topKey === 'qty' ? b.qty - a.qty : b.rev - a.rev);
+  const rows = sorted.map((item, i) => `
+    <tr>
+      <td><span class="rank">${i+1}</span></td>
+      <td>
+        <div class="item-name">${item.name}</div>
+        <div class="item-cat">${item.cat}</div>
+      </td>
+      <td style="font-weight:700;color:var(--brown-dark);">${item.qty}</td>
+      <td style="font-weight:700;color:var(--brown-dark);">${inr(item.rev)}</td>
+      <td>${wowHtml(topKey === 'qty' ? item.wowQ : item.wowR, item.dir)}</td>
+    </tr>`).join('');
+
+  document.getElementById('top-wrap').innerHTML = `
+    <table class="atbl">
+      <thead><tr>
+        <th>#</th><th>Item</th><th>Qty Sold</th><th>Revenue</th><th>WoW Change</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function switchTopTab(key, btn) {
+  topKey = key;
+  document.querySelectorAll('.ttbtn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTopItems();
+}
+
+/* ─── TABLE PERFORMANCE ─── */
+function renderTablePerf() {
+  const maxRev = Math.max(...TABLE_PERF.map(t => t.revenue));
+  const rows = TABLE_PERF.map(t => {
+    const w = Math.round((t.revenue / maxRev) * 100);
+    return `<tr>
+      <td style="font-weight:600;color:var(--brown-dark);">${t.table}</td>
+      <td style="color:var(--gray-400);">${t.cap} seats</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-weight:700;">${inr(t.revenue)}</span>
+          <span class="perf-bar-bg"><span class="perf-bar-fill" style="width:${w}%"></span></span>
+        </div>
+      </td>
+      <td style="font-weight:600;">${t.bills}</td>
+      <td style="color:var(--gray-600);">${t.avgMin} min</td>
+      <td style="color:var(--gray-400);font-size:12px;">${inr(Math.round(t.revenue/t.bills))} / bill</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('tables-wrap').innerHTML = `
+    <table class="atbl">
+      <thead><tr>
+        <th>Table</th><th>Capacity</th><th>Revenue (month)</th><th>Bills</th><th>Avg Turnaround</th><th>Avg / Bill</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+/* ─── STAFF PERFORMANCE ─── */
+function renderStaffPerf() {
+  const maxOrd = Math.max(...STAFF_PERF.map(s => s.orders));
+  const rows = STAFF_PERF.map(s => {
+    const w = Math.round((s.orders / maxOrd) * 100);
+    return `<tr>
+      <td>
+        <div style="font-weight:600;color:var(--brown-dark);">${s.name}</div>
+        <div style="font-size:11px;color:var(--gray-400);">${s.role}</div>
+      </td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-weight:700;">${s.orders}</span>
+          <span class="perf-bar-bg"><span class="perf-bar-fill" style="width:${w}%"></span></span>
+        </div>
+      </td>
+      <td style="font-weight:600;">${s.bills || '<span style="color:var(--gray-400);">—</span>'}</td>
+      <td style="font-weight:700;color:var(--brown-dark);">
+        ${s.revenue ? inr(s.revenue) : '<span style="color:var(--gray-400);font-weight:400;">View-only role</span>'}
+      </td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('staff-wrap').innerHTML = `
+    <table class="atbl">
+      <thead><tr>
+        <th>Staff Member</th><th>Orders Handled (AC-08.6)</th><th>Bills Generated</th><th>Revenue Handled</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+/* ─── GST REPORT ─── */
+function renderGST() {
+  const totS = GST_DATA.reduce((a,r) => a+r.sales, 0);
+  const totC = GST_DATA.reduce((a,r) => a+r.cgst, 0);
+  const totG = GST_DATA.reduce((a,r) => a+r.sgst, 0);
+  const totT = GST_DATA.reduce((a,r) => a+r.total, 0);
+
+  const rows = GST_DATA.map(r => `
+    <tr>
+      <td style="font-weight:600;color:var(--brown-dark);">${r.cat}</td>
+      <td style="color:var(--gray-400);">${r.rate}</td>
+      <td style="font-weight:600;">${inr(r.sales)}</td>
+      <td style="color:var(--brown-mid);font-weight:600;">${r.cgst ? inr(r.cgst) : '<span style="color:var(--gray-400);">—</span>'}</td>
+      <td style="color:var(--brown-mid);font-weight:600;">${r.sgst ? inr(r.sgst) : '<span style="color:var(--gray-400);">—</span>'}</td>
+      <td style="font-weight:700;color:var(--brown-dark);">${r.total ? inr(r.total) : '<span style="color:var(--gray-400);">—</span>'}</td>
+    </tr>`).join('');
+
+  document.getElementById('gst-wrap').innerHTML = `
+    <table class="atbl">
+      <thead><tr>
+        <th>Category (AC-08.7)</th><th>GST Rate</th><th>Net Sales (ex-GST)</th>
+        <th>CGST 2.5%</th><th>SGST 2.5%</th><th>Total GST</th>
+      </tr></thead>
+      <tbody>
+        ${rows}
+        <tr class="gst-total">
+          <td colspan="2">TOTAL</td>
+          <td>${inr(totS)}</td>
+          <td>${inr(totC)}</td>
+          <td>${inr(totG)}</td>
+          <td>${inr(totT)}</td>
+        </tr>
+      </tbody>
+    </table>`;
+}
+
+/* ─── SHOW CONTROLLER ─── */
+const STATES = ['today','week','month','custom','topchart','tables','staff','gst'];
+
+function show(state) {
+  document.querySelectorAll('.demo-tab').forEach((t,i) => {
+    t.classList.toggle('active', STATES[i] === state);
+  });
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + state).classList.add('active');
+}
+
+/* ─── INIT ─── */
+renderPeriod('today');
+renderPeriod('week');
+renderPeriod('month');
+renderTopItems();
+renderTablePerf();
+renderStaffPerf();
+renderGST();
+show('today');
+</script>
+</body>
+</html>

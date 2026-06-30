@@ -1,0 +1,1170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CafeOSum — Table Management (F-03)</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --brown-dark:  #3B1F0E;
+      --brown-mid:   #7C4A1E;
+      --brown-light: #C08040;
+      --gold:        #D4A017;
+      --gold-light:  #F0C040;
+      --cream:       #FDF8F2;
+      --white:       #FFFFFF;
+      --gray-50:     #F9F5F0;
+      --gray-100:    #F0EBE3;
+      --gray-200:    #DDD5C8;
+      --gray-400:    #9E8E7E;
+      --gray-600:    #6B5B4E;
+      --green:       #2E8B57;
+      --green-bg:    #E8F5EE;
+      --green-border:#86EFAC;
+      --amber:       #D97706;
+      --amber-bg:    #FEF3C7;
+      --amber-border:#FDE68A;
+      --red:         #DC2626;
+      --red-bg:      #FEE2E2;
+      --red-border:  #FCA5A5;
+      --sidebar-w:   240px;
+      --header-h:    56px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--gray-50);
+      color: var(--brown-dark);
+      padding-top: 36px;
+    }
+
+    /* ── DEMO BAR ── */
+    .demo-bar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 300;
+      background: var(--brown-dark); padding: 6px 16px;
+      display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    }
+    .demo-label { font-size: 11px; font-weight: 700; color: var(--gold-light); margin-right: 4px; white-space: nowrap; }
+    .demo-tab {
+      padding: 3px 11px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.2);
+      color: rgba(255,255,255,0.6); cursor: pointer; font-size: 11px; font-weight: 500;
+      font-family: inherit; background: transparent; transition: all 0.15s; white-space: nowrap;
+    }
+    .demo-tab:hover { background: rgba(255,255,255,0.1); color: white; }
+    .demo-tab.active { background: var(--gold); color: var(--brown-dark); border-color: var(--gold); font-weight: 700; }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: var(--sidebar-w); background: var(--white);
+      border-right: 1px solid var(--gray-100);
+      position: fixed; top: 36px; left: 0; bottom: 0;
+      display: flex; flex-direction: column; z-index: 200;
+    }
+    .sidebar-logo {
+      padding: 16px 20px; border-bottom: 1px solid var(--gray-100);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .logo-icon {
+      width: 34px; height: 34px; background: var(--brown-dark);
+      border-radius: 9px; display: flex; align-items: center;
+      justify-content: center; color: var(--gold-light); font-size: 17px;
+    }
+    .logo-text { font-size: 16px; font-weight: 700; color: var(--brown-dark); }
+    .logo-text span { color: var(--gold); }
+    nav { flex: 1; padding: 14px 12px; display: flex; flex-direction: column; gap: 2px; }
+    .nav-label { font-size: 10px; font-weight: 600; color: var(--gray-400); letter-spacing: 0.8px; text-transform: uppercase; padding: 10px 8px 4px; }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+      border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500;
+      color: var(--gray-600); transition: background 0.15s, color 0.15s;
+    }
+    .nav-item:hover { background: var(--gray-50); color: var(--brown-dark); }
+    .nav-item.active { background: var(--cream); color: var(--brown-dark); font-weight: 600; }
+    .nav-item.active .nav-icon { color: var(--brown-mid); }
+    .nav-icon { font-size: 15px; width: 20px; text-align: center; }
+    .badge { margin-left: auto; background: var(--red); color: white; font-size: 10px; font-weight: 700; border-radius: 10px; padding: 1px 6px; }
+    .sidebar-footer { padding: 12px; border-top: 1px solid var(--gray-100); }
+    .logout-btn {
+      display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+      border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500;
+      color: var(--red); background: var(--red-bg);
+    }
+
+    /* ── MAIN WRAPPER ── */
+    .main-wrapper {
+      margin-left: var(--sidebar-w);
+      min-height: calc(100vh - 36px);
+      display: flex; flex-direction: column;
+    }
+
+    /* ── TOPBAR ── */
+    .topbar {
+      height: var(--header-h); background: var(--white);
+      border-bottom: 1px solid var(--gray-100);
+      display: flex; align-items: center; padding: 0 24px; gap: 14px;
+      position: sticky; top: 36px; z-index: 100;
+    }
+    .topbar-title { font-size: 20px; font-weight: 700; color: var(--brown-dark); flex: 1; }
+    .sync-pill {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 12px; color: var(--green);
+      background: var(--green-bg); border: 1px solid var(--green-border);
+      padding: 4px 10px; border-radius: 20px; font-weight: 500;
+    }
+    .sync-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--green); animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.5; transform: scale(0.8); }
+    }
+    .sync-dot.stale { background: var(--amber); animation: none; }
+    .icon-btn {
+      width: 34px; height: 34px; border-radius: 8px;
+      background: var(--gray-50); border: 1px solid var(--gray-200);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 14px; color: var(--gray-600);
+    }
+    .btn-add-table {
+      display: flex; align-items: center; gap: 6px;
+      padding: 7px 16px; background: var(--brown-dark); color: white;
+      border: none; border-radius: 8px; font-size: 13px; font-weight: 600;
+      cursor: pointer; font-family: inherit;
+    }
+    .btn-add-table:hover { background: var(--brown-mid); }
+    .user-chip {
+      display: flex; align-items: center; gap: 8px; padding: 4px 10px 4px 4px;
+      border-radius: 20px; background: var(--gray-50); border: 1px solid var(--gray-200); cursor: pointer;
+    }
+    .user-avatar {
+      width: 26px; height: 26px; border-radius: 50%;
+      background: var(--brown-mid); color: white;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 600;
+    }
+    .user-name { font-size: 12px; font-weight: 600; color: var(--brown-dark); }
+
+    /* ── SUMMARY STRIP ── */
+    .summary-strip {
+      background: var(--white); border-bottom: 1px solid var(--gray-100);
+      padding: 12px 24px; display: flex; align-items: center; gap: 24px;
+    }
+    .summary-stat {
+      display: flex; align-items: center; gap: 8px; padding: 6px 14px;
+      border-radius: 8px; cursor: pointer; transition: background 0.15s;
+    }
+    .summary-stat:hover { background: var(--gray-50); }
+    .summary-stat.filter-active { background: var(--cream); }
+    .stat-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .stat-dot.free    { background: var(--green); }
+    .stat-dot.occ     { background: var(--amber); }
+    .stat-dot.pending { background: var(--red); }
+    .stat-dot.total   { background: var(--gray-400); }
+    .stat-num { font-size: 18px; font-weight: 700; color: var(--brown-dark); }
+    .stat-lbl { font-size: 12px; color: var(--gray-400); }
+    .summary-divider { width: 1px; height: 32px; background: var(--gray-100); }
+    .manage-link {
+      margin-left: auto; font-size: 13px; font-weight: 600;
+      color: var(--brown-mid); cursor: pointer; display: flex; align-items: center; gap: 4px;
+    }
+
+    /* ── FILTER TABS ── */
+    .filter-bar {
+      padding: 12px 24px 0; display: flex; align-items: center; gap: 4px;
+    }
+    .filter-tab {
+      padding: 6px 16px; border-radius: 8px 8px 0 0;
+      font-size: 13px; font-weight: 500; color: var(--gray-400);
+      cursor: pointer; border: 1px solid transparent;
+      border-bottom: none; background: transparent; font-family: inherit;
+    }
+    .filter-tab.active {
+      background: var(--white); color: var(--brown-dark); font-weight: 600;
+      border-color: var(--gray-100);
+    }
+
+    /* ── MAIN CONTENT ── */
+    .content-body { padding: 0 24px 32px; }
+
+    /* ── TABLE GRID ── */
+    .grid-wrap {
+      background: var(--white); border: 1px solid var(--gray-100);
+      border-radius: 0 12px 12px 12px; padding: 20px;
+    }
+    .table-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
+      gap: 12px;
+    }
+
+    /* ── TABLE TILE ── */
+    .tile {
+      border-radius: 12px; border: 2px solid; padding: 14px 14px 12px;
+      cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;
+      display: flex; flex-direction: column; gap: 0; min-height: 140px;
+      position: relative;
+    }
+    .tile:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(59,31,14,0.1); }
+
+    .tile.free    { border-color: var(--green-border); background: var(--green-bg); }
+    .tile.occ     { border-color: var(--amber-border); background: var(--amber-bg); }
+    .tile.pending { border-color: var(--red-border);   background: var(--red-bg); }
+    .tile.pending { cursor: default; }
+    .tile.pending:hover { transform: none; box-shadow: none; }
+
+    .tile-header {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .tile-name { font-size: 13px; font-weight: 700; color: var(--brown-dark); line-height: 1.2; }
+    .tile-icon { font-size: 18px; opacity: 0.7; }
+
+    .tile-divider { height: 1px; background: rgba(0,0,0,0.07); margin-bottom: 8px; }
+
+    .tile-status {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.5px; margin-bottom: 6px;
+    }
+    .tile-status-dot { width: 7px; height: 7px; border-radius: 50%; }
+    .tile.free .tile-status-dot    { background: var(--green); }
+    .tile.free .tile-status        { color: var(--green); }
+    .tile.occ .tile-status-dot     { background: var(--amber); }
+    .tile.occ .tile-status         { color: var(--amber); }
+    .tile.pending .tile-status-dot { background: var(--red); }
+    .tile.pending .tile-status     { color: var(--red); }
+
+    .tile-detail { font-size: 12px; color: var(--gray-600); line-height: 1.5; flex: 1; }
+    .tile-detail strong { color: var(--brown-dark); }
+
+    .tile-action {
+      margin-top: 10px; font-size: 11px; font-weight: 600;
+      display: flex; align-items: center; gap: 4px;
+    }
+    .tile.free .tile-action    { color: var(--green); }
+    .tile.occ .tile-action     { color: var(--amber); }
+    .tile.pending .tile-action { color: var(--red); }
+
+    .tile-elapsed {
+      position: absolute; top: 10px; right: 10px;
+      font-size: 10px; font-weight: 600; color: var(--amber);
+      background: rgba(217,119,6,0.12); padding: 2px 6px; border-radius: 10px;
+    }
+    .tile.pending .tile-elapsed {
+      color: var(--red); background: rgba(220,38,38,0.12);
+    }
+
+    .tile-lock {
+      position: absolute; bottom: 10px; right: 10px;
+      font-size: 14px; opacity: 0.4;
+    }
+
+    /* Add tile */
+    .tile-add {
+      border-radius: 12px; border: 2px dashed var(--gray-200);
+      background: var(--white); min-height: 140px;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; cursor: pointer; gap: 6px;
+      transition: border-color 0.15s;
+    }
+    .tile-add:hover { border-color: var(--brown-mid); }
+    .tile-add-icon { font-size: 22px; color: var(--gray-400); }
+    .tile-add-label { font-size: 12px; font-weight: 600; color: var(--gray-400); }
+    .tile-add:hover .tile-add-icon,
+    .tile-add:hover .tile-add-label { color: var(--brown-mid); }
+
+    /* ── MODALS ── */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(59,31,14,0.35); z-index: 400;
+      align-items: center; justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: var(--white); border-radius: 16px; width: 440px;
+      max-width: 94vw; box-shadow: 0 20px 60px rgba(59,31,14,0.2);
+      overflow: hidden;
+    }
+    .modal-header {
+      padding: 18px 20px 16px; border-bottom: 1px solid var(--gray-100);
+      display: flex; align-items: center; gap: 12px;
+    }
+    .modal-header-icon {
+      width: 38px; height: 38px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center; font-size: 18px;
+    }
+    .modal-title { font-size: 16px; font-weight: 700; color: var(--brown-dark); }
+    .modal-sub   { font-size: 12px; color: var(--gray-400); margin-top: 2px; }
+    .modal-close {
+      margin-left: auto; width: 30px; height: 30px; border-radius: 8px;
+      border: 1px solid var(--gray-200); background: var(--white);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 14px; color: var(--gray-400);
+    }
+    .modal-body { padding: 20px; }
+    .modal-footer {
+      padding: 14px 20px; border-top: 1px solid var(--gray-100);
+      display: flex; gap: 10px; justify-content: flex-end;
+    }
+
+    /* ── FORM ELEMENTS (shared) ── */
+    .field { margin-bottom: 14px; }
+    .field:last-child { margin-bottom: 0; }
+    label { display: block; font-size: 12px; font-weight: 600; color: var(--brown-dark); margin-bottom: 5px; }
+    .req { color: var(--red); }
+    .opt { font-size: 10px; font-weight: 500; color: var(--gray-400); background: var(--gray-100); border-radius: 4px; padding: 1px 5px; margin-left: 4px; }
+    .input-wrap { position: relative; }
+    .inp-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--gray-400); font-size: 13px; pointer-events: none; }
+    input[type="text"], input[type="number"], select, textarea {
+      width: 100%; padding: 9px 10px 9px 32px;
+      border: 1px solid var(--gray-200); border-radius: 8px;
+      font-size: 13px; color: var(--brown-dark); background: var(--gray-50);
+      outline: none; font-family: inherit; appearance: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--brown-mid); box-shadow: 0 0 0 3px rgba(124,74,30,0.1); background: var(--white);
+    }
+    .field-hint { font-size: 11px; color: var(--gray-400); margin-top: 4px; }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    /* Buttons */
+    .btn-primary {
+      padding: 9px 20px; background: var(--brown-dark); color: white; border: none;
+      border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
+    }
+    .btn-primary:hover { background: var(--brown-mid); }
+    .btn-primary.green { background: var(--green); }
+    .btn-primary.green:hover { background: #246b44; }
+    .btn-primary.red { background: var(--red); }
+    .btn-secondary {
+      padding: 9px 20px; background: var(--white); color: var(--gray-600);
+      border: 1px solid var(--gray-200); border-radius: 8px; font-size: 13px;
+      font-weight: 600; cursor: pointer; font-family: inherit;
+    }
+    .btn-secondary:hover { background: var(--gray-50); }
+    .btn-danger {
+      padding: 9px 20px; background: var(--red-bg); color: var(--red);
+      border: 1px solid var(--red-border); border-radius: 8px; font-size: 13px;
+      font-weight: 600; cursor: pointer; font-family: inherit;
+    }
+
+    /* ── ORDER SUMMARY (in modal) ── */
+    .order-meta { background: var(--gray-50); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; }
+    .order-meta-row { display: flex; justify-content: space-between; font-size: 12px; color: var(--gray-600); padding: 3px 0; }
+    .order-meta-row strong { color: var(--brown-dark); }
+    .order-items { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+    .order-item-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 10px; border-radius: 8px; background: var(--white);
+      border: 1px solid var(--gray-100);
+    }
+    .order-item-emoji { font-size: 18px; }
+    .order-item-info { flex: 1; }
+    .order-item-name { font-size: 13px; font-weight: 600; color: var(--brown-dark); }
+    .order-item-note { font-size: 11px; color: var(--gray-400); }
+    .order-item-price { font-size: 13px; font-weight: 600; color: var(--brown-dark); }
+    .order-total-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 12px; background: var(--cream); border-radius: 8px;
+      font-size: 14px; font-weight: 700; color: var(--brown-dark);
+      border: 1px solid var(--gray-100);
+    }
+    .order-total-label { font-size: 12px; color: var(--gray-400); }
+
+    /* ── LOCKED STATE MODAL ── */
+    .locked-icon-wrap {
+      width: 56px; height: 56px; border-radius: 50%; background: var(--red-bg);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px; margin: 0 auto 14px;
+    }
+
+    /* ── MANAGE TABLES (list view) ── */
+    .manage-view { display: none; }
+    .manage-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .manage-title { font-size: 16px; font-weight: 700; color: var(--brown-dark); }
+    .manage-subtitle { font-size: 13px; color: var(--gray-400); margin-top: 2px; }
+    .table-list {
+      background: var(--white); border: 1px solid var(--gray-100); border-radius: 12px; overflow: hidden;
+    }
+    .table-list-header {
+      display: grid; grid-template-columns: 2fr 80px 100px 1fr 90px;
+      padding: 10px 16px; background: var(--gray-50);
+      border-bottom: 1px solid var(--gray-100);
+    }
+    .table-list-col { font-size: 11px; font-weight: 700; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.5px; }
+    .table-list-row {
+      display: grid; grid-template-columns: 2fr 80px 100px 1fr 90px;
+      padding: 12px 16px; border-bottom: 1px solid var(--gray-100);
+      align-items: center; transition: background 0.1s;
+    }
+    .table-list-row:last-child { border-bottom: none; }
+    .table-list-row:hover { background: var(--gray-50); }
+    .tl-name { font-size: 13px; font-weight: 600; color: var(--brown-dark); display: flex; align-items: center; gap: 8px; }
+    .tl-seats { font-size: 13px; color: var(--gray-600); }
+    .tl-status { }
+    .status-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600;
+    }
+    .status-badge.free    { background: var(--green-bg); color: var(--green); }
+    .status-badge.occ     { background: var(--amber-bg); color: var(--amber); }
+    .status-badge.pending { background: var(--red-bg);   color: var(--red); }
+    .tl-since { font-size: 12px; color: var(--gray-400); }
+    .tl-actions { display: flex; gap: 6px; }
+    .tl-btn {
+      padding: 5px 10px; border-radius: 6px; font-size: 12px; font-weight: 500;
+      cursor: pointer; font-family: inherit; border: 1px solid var(--gray-200);
+      background: var(--white); color: var(--gray-600);
+    }
+    .tl-btn:hover { background: var(--gray-50); }
+    .tl-btn.del { color: var(--red); border-color: var(--red-border); background: var(--red-bg); }
+
+    .table-count-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 16px; background: var(--cream); border-top: 1px solid var(--gray-100);
+      font-size: 12px; color: var(--gray-400);
+    }
+    .table-count-bar strong { color: var(--brown-dark); }
+
+    /* ── SLIDE PANEL (right panel for occupied detail) ── */
+    .slide-panel {
+      display: none; position: fixed; top: 36px; right: 0; bottom: 0;
+      width: 360px; background: var(--white); border-left: 1px solid var(--gray-100);
+      z-index: 350; overflow-y: auto;
+      box-shadow: -4px 0 20px rgba(59,31,14,0.08);
+    }
+    .slide-panel.open { display: block; }
+    .panel-header {
+      padding: 16px 18px; border-bottom: 1px solid var(--gray-100);
+      display: flex; align-items: center; gap: 12px; position: sticky; top: 0;
+      background: var(--white); z-index: 10;
+    }
+    .panel-close {
+      margin-left: auto; width: 30px; height: 30px; border-radius: 8px;
+      border: 1px solid var(--gray-200); background: var(--white);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 14px; color: var(--gray-400);
+    }
+    .panel-body { padding: 18px; }
+    .panel-section { margin-bottom: 18px; }
+    .panel-section-title { font-size: 12px; font-weight: 700; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+
+    /* ── AC-03.3 REAL-TIME BANNER ── */
+    .realtime-banner {
+      display: none; background: var(--blue-bg, #EFF6FF); border: 1px solid var(--blue-border, #BFDBFE);
+      border-radius: 8px; padding: 10px 14px; margin-bottom: 14px;
+      font-size: 13px; color: #1D4ED8; display: flex; align-items: center; gap: 8px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── DEMO BAR ── -->
+<div class="demo-bar">
+  <span class="demo-label">F-03 Tables:</span>
+  <button class="demo-tab active"  onclick="show('grid')">Occupancy Grid</button>
+  <button class="demo-tab"         onclick="show('new-order')">Free Table → New Order</button>
+  <button class="demo-tab"         onclick="show('view-order')">Occupied Table → View Order</button>
+  <button class="demo-tab"         onclick="show('locked')">Bill Pending → Locked (AC-03.5)</button>
+  <button class="demo-tab"         onclick="show('manage')">Manage Tables</button>
+  <button class="demo-tab"         onclick="show('add-table')">Add Table Modal</button>
+</div>
+
+<!-- ── SIDEBAR ── -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">☕</div>
+    <span class="logo-text">Cafe<span>OSum</span></span>
+  </div>
+  <nav>
+    <span class="nav-label">Main</span>
+    <div class="nav-item"><span class="nav-icon">⊞</span> Dashboard</div>
+    <div class="nav-item"><span class="nav-icon">☰</span> Menu</div>
+    <div class="nav-item"><span class="nav-icon">🧾</span> Billing / POS</div>
+    <div class="nav-item"><span class="nav-icon">📋</span> Orders <span class="badge">3</span></div>
+    <span class="nav-label">Floor</span>
+    <div class="nav-item active"><span class="nav-icon">🪑</span> Tables</div>
+    <span class="nav-label">Management</span>
+    <div class="nav-item"><span class="nav-icon">📦</span> Inventory</div>
+    <div class="nav-item"><span class="nav-icon">👷</span> Staff &amp; PINs</div>
+    <span class="nav-label">Insights</span>
+    <div class="nav-item"><span class="nav-icon">📈</span> Analytics</div>
+    <div class="nav-item"><span class="nav-icon">⚙</span> Settings</div>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="logout-btn"><span>↪</span> Logout</div>
+  </div>
+</aside>
+
+<!-- ── MAIN WRAPPER ── -->
+<div class="main-wrapper">
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <span class="topbar-title">Tables</span>
+    <div class="sync-pill" id="sync-pill">
+      <div class="sync-dot" id="sync-dot"></div>
+      <span id="sync-text">Live · synced 2s ago</span>
+    </div>
+    <div class="icon-btn" title="Refresh" onclick="flashSync()">↻</div>
+    <button class="btn-add-table" onclick="show('add-table')">＋ Add Table</button>
+    <div class="user-chip">
+      <div class="user-avatar">RK</div>
+      <span class="user-name">Rajesh K.</span>
+    </div>
+  </header>
+
+  <!-- SUMMARY STRIP -->
+  <div class="summary-strip">
+    <div class="summary-stat" onclick="filterTiles('free')">
+      <div class="stat-dot free"></div>
+      <div>
+        <div class="stat-num" id="count-free">6</div>
+        <div class="stat-lbl">Free</div>
+      </div>
+    </div>
+    <div class="summary-divider"></div>
+    <div class="summary-stat" onclick="filterTiles('occ')">
+      <div class="stat-dot occ"></div>
+      <div>
+        <div class="stat-num" id="count-occ">4</div>
+        <div class="stat-lbl">Occupied</div>
+      </div>
+    </div>
+    <div class="summary-divider"></div>
+    <div class="summary-stat" onclick="filterTiles('pending')">
+      <div class="stat-dot pending"></div>
+      <div>
+        <div class="stat-num" id="count-pending">2</div>
+        <div class="stat-lbl">Bill Pending</div>
+      </div>
+    </div>
+    <div class="summary-divider"></div>
+    <div class="summary-stat">
+      <div class="stat-dot total"></div>
+      <div>
+        <div class="stat-num">12</div>
+        <div class="stat-lbl">Total · 12 of 50</div>
+      </div>
+    </div>
+    <div class="manage-link" onclick="show('manage')">⊞ Manage Tables →</div>
+  </div>
+
+  <!-- FILTER TABS -->
+  <div class="filter-bar">
+    <button class="filter-tab active" id="ftab-all"     onclick="filterTiles('all')">All Tables (12)</button>
+    <button class="filter-tab"        id="ftab-free"    onclick="filterTiles('free')">🟢 Free (6)</button>
+    <button class="filter-tab"        id="ftab-occ"     onclick="filterTiles('occ')">🟡 Occupied (4)</button>
+    <button class="filter-tab"        id="ftab-pending" onclick="filterTiles('pending')">🔴 Bill Pending (2)</button>
+  </div>
+
+  <!-- GRID VIEW -->
+  <div class="content-body" id="view-grid">
+    <div class="grid-wrap">
+
+      <!-- AC-03.3 real-time note -->
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:16px; font-size:12px; color:var(--gray-400);">
+        <div class="sync-dot" style="width:8px;height:8px;"></div>
+        Occupancy updates live across all devices — &lt;3 second latency (AC-03.3)
+      </div>
+
+      <div class="table-grid" id="tile-grid">
+
+        <!-- FREE TABLES -->
+        <div class="tile free" data-state="free" onclick="show('new-order')" title="Tap to start a new order">
+          <div class="tile-header">
+            <div class="tile-name">Table 1</div>
+            <div class="tile-icon">🪑</div>
+          </div>
+          <div class="tile-divider"></div>
+          <div class="tile-status"><div class="tile-status-dot"></div> Free</div>
+          <div class="tile-detail">4 seats</div>
+          <div class="tile-action">＋ Start order →</div>
+        </div>
+
+        <div class="tile occ" data-state="occ" onclick="show('view-order')" title="Tap to view active order">
+          <div class="tile-elapsed">22 min</div>
+          <div class="tile-header">
+            <div class="tile-name">Table 2</div>
+            <div class="tile-icon">🧑‍🤝‍🧑</div>
+          </div>
+          <div class="tile-divider"></div>
+          <div class="tile-status"><div class="tile-status-dot"></div> Occupied</div>
+          <div class="tile-detail">
+            <strong>Ananya S.</strong><br>
+            3 items · ₹280
+          </div>
+          <div class="tile-action">View order →</div>
+        </div>
+
+        <div class="tile free" data-state="free" onclick="show('new-order')">
+          <div class="tile-header">
+            <div class="tile-name">Table 3</div>
+            <div class="tile-icon">🪑</div>
+          </div>
+          <div class="tile-divider"></div>
+          <div class="tile-status"><div class="tile-status-dot"></div> Free</div>
+          <div class="tile-detail">2 seats</div>
+          <div class="tile-action">＋ Start order →</div>
+        </div>
+
+        <div class="tile occ" data-state="occ" onclick="show('view-order')">
+          <div class="tile-elapsed">35 min</div>
+          <div class="tile-header">
+            <div class="tile-name">Window Seat</div>
+            <div class="tile-icon">🪟</div>
+          </div>
+          <div class="tile-divider"></div>
+          <div class="tile-status"><div class="tile-status-dot"></div> Occupied</div>
+          <div class="tile-detail">
+            <strong>Kiran M.</strong><br>
+            5 items · ₹460
+          </div>
+          <div class="tile-action">View order →</div>
+        </div>
+
+        <div class="tile pending" data-state="pending" onclick="show('locked')">
+          <div class="tile-elapsed" style="">48 min</div>
+          <div class="tile-header">
+            <div class="tile-name">Corner Booth</div>
+            <div class="tile-icon">🧾</div>
+          </div>
+          <div class="tile-divider"></div>
+          <div class="tile-status"><div class="tile-status-dot"></div> Bill Pending</div>
+          <div class="tile-detail">
+            <strong>Priya R.</strong><br>
+            ₹580 due
+          </div>
+          <div class="tile-action">Settle now →</div>
+          <div class="tile-lock">🔒</div>
+        </div>
+
+        <div class="tile free" data-state="free" onclick="show('new-order')">
+          <div class="tile-header">
+            <div class="tile-name">Table 5</div>
+            <div class="tile-icon">🪑</div>
+          </div>
+          <div class="tile-divider"></div>
+          <div class="tile-status"><div class="tile-status-dot"></div> Free</div>
+          <div class="tile-detail">6 seats</div>
+          <div class="tile-action">＋ Start order →</div>
+        </div>
+
+        <div class="tile occ" data-state="occ" onclick="show('view-order')">
+          <div class="tile-elapsed">9 min</div>
+          <div class="tile-header">
+            <div class="tile-name">Table 6</div>
+            <div class="tile-icon">🧑‍🤝‍🧑</div>
+          </div>
+          <div class="tile-divider"></div>
+          <div class="tile-status"><div class="tile-status-dot"></div> Occupied</div>
+          <div class="tile-detail">
+            <strong>Dev P.</strong><br>
+            2 items · ₹190
+          </div>
+          <div class="tile-action">View order →</div>
+        </div>
+
+        <div class="tile free" data-state="free" onclick="show('new-order')">
+          <div class="tile-header">
+            <div class="tile-name">Outdoor 1</div>
+            <div class="tile-icon">🌿</div>
+          </div>
+          <div class="tile-divider"></div>
+          <div class="tile-status"><div class="tile-status-dot"></div> Free</div>
+          <div class="tile-detail">4 seats</div>
+          <div class="tile-action">＋ Start order →</div>
+        </div>
+
+        <div class="tile pending" data-state="pending" onclick="show('locked')">
+          <div class="tile-elapsed">61 min</div>
+          <div class="tile-header">
+            <div class="tile-name">Outdoor 2</div>
+            <div class="tile-icon">🧾</div>
+          </div>
+          <div class="tile-divider"></div>
+          <div class="tile-status"><div class="tile-status-dot"></div> Bill Pending</div>
+          <div class="tile-detail">
+            <strong>Meera L.</strong><br>
+            ₹340 due
+          </div>
+          <div class="tile-action">Settle now →</div>
+          <div class="tile-lock">🔒</div>
+        </div>
+
+        <div class="tile free" data-state="free" onclick="show('new-order')">
+          <div class="tile-header">
+            <div class="tile-name">Table 8</div>
+            <div class="tile-icon">🪑</div>
+          </div>
+          <div class="tile-divider"></div>
+          <div class="tile-status"><div class="tile-status-dot"></div> Free</div>
+          <div class="tile-detail">4 seats</div>
+          <div class="tile-action">＋ Start order →</div>
+        </div>
+
+        <div class="tile occ" data-state="occ" onclick="show('view-order')">
+          <div class="tile-elapsed">27 min</div>
+          <div class="tile-header">
+            <div class="tile-name">Table 9</div>
+            <div class="tile-icon">🧑‍🤝‍🧑</div>
+          </div>
+          <div class="tile-divider"></div>
+          <div class="tile-status"><div class="tile-status-dot"></div> Occupied</div>
+          <div class="tile-detail">
+            <strong>Suresh K.</strong><br>
+            4 items · ₹380
+          </div>
+          <div class="tile-action">View order →</div>
+        </div>
+
+        <div class="tile free" data-state="free" onclick="show('new-order')">
+          <div class="tile-header">
+            <div class="tile-name">Table 10</div>
+            <div class="tile-icon">🪑</div>
+          </div>
+          <div class="tile-divider"></div>
+          <div class="tile-status"><div class="tile-status-dot"></div> Free</div>
+          <div class="tile-detail">2 seats</div>
+          <div class="tile-action">＋ Start order →</div>
+        </div>
+
+        <!-- Add tile -->
+        <div class="tile-add" onclick="show('add-table')">
+          <div class="tile-add-icon">＋</div>
+          <div class="tile-add-label">Add Table</div>
+        </div>
+
+      </div><!-- /tile-grid -->
+    </div><!-- /grid-wrap -->
+  </div><!-- /view-grid -->
+
+  <!-- MANAGE TABLES VIEW -->
+  <div class="content-body" id="view-manage" style="display:none;">
+    <div class="manage-header">
+      <div>
+        <div class="manage-title">Manage Tables</div>
+        <div class="manage-subtitle">Add, edit, or remove tables. Changes reflect immediately on the occupancy grid.</div>
+      </div>
+      <button class="btn-primary" onclick="show('add-table')">＋ Add Table</button>
+    </div>
+
+    <div class="table-list">
+      <div class="table-list-header">
+        <div class="table-list-col">Table Name</div>
+        <div class="table-list-col">Seats</div>
+        <div class="table-list-col">Status</div>
+        <div class="table-list-col">Since</div>
+        <div class="table-list-col">Actions</div>
+      </div>
+
+      <div class="table-list-row">
+        <div class="tl-name">🪑 Table 1</div>
+        <div class="tl-seats">4 seats</div>
+        <div class="tl-status"><span class="status-badge free">● Free</span></div>
+        <div class="tl-since">—</div>
+        <div class="tl-actions">
+          <button class="tl-btn" onclick="show('add-table')">Edit</button>
+          <button class="tl-btn del">Delete</button>
+        </div>
+      </div>
+      <div class="table-list-row">
+        <div class="tl-name">🧑‍🤝‍🧑 Table 2</div>
+        <div class="tl-seats">4 seats</div>
+        <div class="tl-status"><span class="status-badge occ">● Occupied</span></div>
+        <div class="tl-since">22 min ago</div>
+        <div class="tl-actions">
+          <button class="tl-btn" onclick="show('add-table')">Edit</button>
+          <button class="tl-btn del" style="opacity:0.4; cursor:not-allowed;" title="Cannot delete an occupied table">Delete</button>
+        </div>
+      </div>
+      <div class="table-list-row">
+        <div class="tl-name">🪑 Table 3</div>
+        <div class="tl-seats">2 seats</div>
+        <div class="tl-status"><span class="status-badge free">● Free</span></div>
+        <div class="tl-since">—</div>
+        <div class="tl-actions">
+          <button class="tl-btn" onclick="show('add-table')">Edit</button>
+          <button class="tl-btn del">Delete</button>
+        </div>
+      </div>
+      <div class="table-list-row">
+        <div class="tl-name">🪟 Window Seat</div>
+        <div class="tl-seats">2 seats</div>
+        <div class="tl-status"><span class="status-badge occ">● Occupied</span></div>
+        <div class="tl-since">35 min ago</div>
+        <div class="tl-actions">
+          <button class="tl-btn" onclick="show('add-table')">Edit</button>
+          <button class="tl-btn del" style="opacity:0.4; cursor:not-allowed;">Delete</button>
+        </div>
+      </div>
+      <div class="table-list-row">
+        <div class="tl-name">🧾 Corner Booth</div>
+        <div class="tl-seats">6 seats</div>
+        <div class="tl-status"><span class="status-badge pending">● Bill Pending</span></div>
+        <div class="tl-since">48 min ago</div>
+        <div class="tl-actions">
+          <button class="tl-btn" onclick="show('add-table')">Edit</button>
+          <button class="tl-btn del" style="opacity:0.4; cursor:not-allowed;">Delete</button>
+        </div>
+      </div>
+      <div class="table-list-row">
+        <div class="tl-name">🪑 Table 5</div>
+        <div class="tl-seats">6 seats</div>
+        <div class="tl-status"><span class="status-badge free">● Free</span></div>
+        <div class="tl-since">—</div>
+        <div class="tl-actions">
+          <button class="tl-btn" onclick="show('add-table')">Edit</button>
+          <button class="tl-btn del">Delete</button>
+        </div>
+      </div>
+      <div class="table-list-row">
+        <div class="tl-name">🧑‍🤝‍🧑 Table 6</div>
+        <div class="tl-seats">4 seats</div>
+        <div class="tl-status"><span class="status-badge occ">● Occupied</span></div>
+        <div class="tl-since">9 min ago</div>
+        <div class="tl-actions">
+          <button class="tl-btn" onclick="show('add-table')">Edit</button>
+          <button class="tl-btn del" style="opacity:0.4; cursor:not-allowed;">Delete</button>
+        </div>
+      </div>
+      <div class="table-list-row">
+        <div class="tl-name">🌿 Outdoor 1</div>
+        <div class="tl-seats">4 seats</div>
+        <div class="tl-status"><span class="status-badge free">● Free</span></div>
+        <div class="tl-since">—</div>
+        <div class="tl-actions">
+          <button class="tl-btn" onclick="show('add-table')">Edit</button>
+          <button class="tl-btn del">Delete</button>
+        </div>
+      </div>
+      <div class="table-list-row">
+        <div class="tl-name">🧾 Outdoor 2</div>
+        <div class="tl-seats">4 seats</div>
+        <div class="tl-status"><span class="status-badge pending">● Bill Pending</span></div>
+        <div class="tl-since">61 min ago</div>
+        <div class="tl-actions">
+          <button class="tl-btn" onclick="show('add-table')">Edit</button>
+          <button class="tl-btn del" style="opacity:0.4; cursor:not-allowed;">Delete</button>
+        </div>
+      </div>
+
+      <div class="table-count-bar">
+        <span>Showing <strong>9 of 12</strong> tables · <strong>12 of 50</strong> maximum</span>
+        <span style="color:var(--green);">✓ Server-synced state (AC-03.6)</span>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main-wrapper -->
+
+
+<!-- ══════════════════════════════════════
+  MODAL 1 — Free Table → New Order (AC-03.4)
+══════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-new-order">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-header-icon" style="background:var(--green-bg);">🪑</div>
+      <div>
+        <div class="modal-title">Table 1 — Start new order</div>
+        <div class="modal-sub">4 seats · Currently free</div>
+      </div>
+      <div class="modal-close" onclick="closeModal('modal-new-order')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Customer name <span class="opt">Optional</span></label>
+        <div class="input-wrap">
+          <span class="inp-icon">👤</span>
+          <input type="text" placeholder="e.g. Ananya S." />
+        </div>
+        <div class="field-hint">Helps identify the order in the order queue and on the bill.</div>
+      </div>
+      <div class="two-col">
+        <div class="field">
+          <label>Guests</label>
+          <div class="input-wrap">
+            <span class="inp-icon">#</span>
+            <input type="number" placeholder="e.g. 2" value="2" />
+          </div>
+        </div>
+        <div class="field">
+          <label>Table</label>
+          <div class="input-wrap">
+            <span class="inp-icon">🪑</span>
+            <select>
+              <option selected>Table 1 (4 seats)</option>
+              <option>Table 3 (2 seats)</option>
+              <option>Table 5 (6 seats)</option>
+              <option>Outdoor 1 (4 seats)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div style="background:var(--green-bg); border:1px solid var(--green-border); border-radius:8px; padding:10px 12px; font-size:12px; color:var(--green); display:flex; align-items:center; gap:8px;">
+        <span>✓</span> Table will be marked <strong>Occupied</strong> the moment you open the order.
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal('modal-new-order')">Cancel</button>
+      <button class="btn-primary green">Open Order →</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════
+  SLIDE PANEL — Occupied Table → View Order (AC-03.4)
+══════════════════════════════════════ -->
+<div class="slide-panel" id="panel-view-order">
+  <div class="panel-header">
+    <div style="width:36px;height:36px;border-radius:9px;background:var(--amber-bg);display:flex;align-items:center;justify-content:center;font-size:18px;">🧑‍🤝‍🧑</div>
+    <div>
+      <div style="font-size:15px;font-weight:700;color:var(--brown-dark);">Table 2 — Active Order</div>
+      <div style="font-size:12px;color:var(--amber);font-weight:600;">● Occupied · 22 min</div>
+    </div>
+    <div class="panel-close" onclick="closePanel('panel-view-order')">✕</div>
+  </div>
+  <div class="panel-body">
+
+    <div class="panel-section">
+      <div class="panel-section-title">Order info</div>
+      <div class="order-meta">
+        <div class="order-meta-row"><span>Order ID</span><strong>#ORD-0042</strong></div>
+        <div class="order-meta-row"><span>Customer</span><strong>Ananya S.</strong></div>
+        <div class="order-meta-row"><span>Guests</span><strong>2</strong></div>
+        <div class="order-meta-row"><span>Opened</span><strong>Today, 11:08</strong></div>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-section-title">Items ordered</div>
+      <div class="order-items">
+        <div class="order-item-row">
+          <div class="order-item-emoji">☕</div>
+          <div class="order-item-info">
+            <div class="order-item-name">Masala Chai × 2</div>
+            <div class="order-item-note">No sugar</div>
+          </div>
+          <div class="order-item-price">₹120</div>
+        </div>
+        <div class="order-item-row">
+          <div class="order-item-emoji">🧁</div>
+          <div class="order-item-info">
+            <div class="order-item-name">Blueberry Muffin × 1</div>
+            <div class="order-item-note">—</div>
+          </div>
+          <div class="order-item-price">₹120</div>
+        </div>
+        <div class="order-item-row">
+          <div class="order-item-emoji">🥤</div>
+          <div class="order-item-info">
+            <div class="order-item-name">Cold Brew Latte × 1</div>
+            <div class="order-item-note">Extra shot</div>
+          </div>
+          <div class="order-item-price">₹190</div>
+        </div>
+      </div>
+      <div class="order-total-row">
+        <span>Grand Total</span>
+        <div style="text-align:right;">
+          <div>₹430</div>
+          <div class="order-total-label">incl. ₹20.50 GST</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:8px; margin-top:4px;">
+      <button class="btn-primary" style="width:100%; justify-content:center; display:flex; align-items:center; gap:6px;">🧾 Generate Bill</button>
+      <button class="btn-secondary" style="width:100%; justify-content:center; display:flex; align-items:center; gap:6px;">＋ Add items to order</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════
+  MODAL 2 — Bill Pending → Locked (AC-03.5)
+══════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-locked">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-header-icon" style="background:var(--red-bg);">🔒</div>
+      <div>
+        <div class="modal-title">Corner Booth — Bill Pending</div>
+        <div class="modal-sub">Cannot start a new order until this bill is settled</div>
+      </div>
+      <div class="modal-close" onclick="closeModal('modal-locked')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div style="text-align:center; padding: 8px 0 16px;">
+        <div class="locked-icon-wrap">🧾</div>
+        <div style="font-size:15px; font-weight:700; color:var(--brown-dark); margin-bottom:6px;">Table is awaiting payment</div>
+        <div style="font-size:13px; color:var(--gray-400); line-height:1.6; max-width:280px; margin:0 auto;">
+          <strong style="color:var(--brown-dark);">Priya R.</strong> has an outstanding bill of <strong style="color:var(--red);">₹580</strong>. Settle this bill before opening a new order on this table.
+        </div>
+      </div>
+
+      <div style="background:var(--red-bg); border:1px solid var(--red-border); border-radius:8px; padding:12px 14px; font-size:12px; color:var(--red); margin-bottom:4px;">
+        <strong>AC-03.5:</strong> A table marked as Bill Pending cannot be re-opened for a new order until the bill is settled.
+      </div>
+
+      <div class="order-meta" style="margin-top:12px; margin-bottom:0;">
+        <div class="order-meta-row"><span>Order ID</span><strong>#ORD-0039</strong></div>
+        <div class="order-meta-row"><span>Customer</span><strong>Priya R.</strong></div>
+        <div class="order-meta-row"><span>Amount due</span><strong style="color:var(--red);">₹580</strong></div>
+        <div class="order-meta-row"><span>Open since</span><strong>48 min ago</strong></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal('modal-locked')">Close</button>
+      <button class="btn-primary red">Settle Bill Now →</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════
+  MODAL 3 — Add / Edit Table (AC-03.1)
+══════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-add-table">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-header-icon" style="background:var(--cream);">🪑</div>
+      <div>
+        <div class="modal-title">Add new table</div>
+        <div class="modal-sub">Appears on occupancy grid immediately after saving</div>
+      </div>
+      <div class="modal-close" onclick="closeModal('modal-add-table')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Table name / number <span class="req">*</span></label>
+        <div class="input-wrap">
+          <span class="inp-icon">🪑</span>
+          <input type="text" placeholder="e.g. Table 11, Window Seat, Rooftop 1" />
+        </div>
+        <div class="field-hint">Use a name staff will instantly recognise on the floor.</div>
+      </div>
+      <div class="two-col">
+        <div class="field">
+          <label>Seating capacity <span class="req">*</span></label>
+          <div class="input-wrap">
+            <span class="inp-icon">#</span>
+            <input type="number" placeholder="e.g. 4" min="1" max="50" />
+          </div>
+        </div>
+        <div class="field">
+          <label>Table type <span class="opt">Optional</span></label>
+          <div class="input-wrap">
+            <span class="inp-icon">🏷</span>
+            <select>
+              <option value="">Select type…</option>
+              <option>Indoor</option>
+              <option>Outdoor</option>
+              <option>Private / Booth</option>
+              <option>Counter</option>
+              <option>Bar seating</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div style="background:var(--cream); border:1px solid var(--gray-100); border-radius:8px; padding:10px 12px; font-size:12px; color:var(--gray-600); line-height:1.5;">
+        ℹ You can add up to <strong>50 tables</strong> per cafe. You have <strong>38 slots remaining</strong>.
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal('modal-add-table')">Cancel</button>
+      <button class="btn-primary">Add Table</button>
+    </div>
+  </div>
+</div>
+
+
+<script>
+  function show(state) {
+    /* reset all views & modals & panels */
+    document.getElementById('view-grid').style.display   = 'none';
+    document.getElementById('view-manage').style.display = 'none';
+    document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('open'));
+    document.querySelectorAll('.slide-panel').forEach(p => p.classList.remove('open'));
+    document.querySelectorAll('.demo-tab').forEach(t => t.classList.remove('active'));
+
+    /* always show grid behind modals/panels */
+    document.getElementById('view-grid').style.display = 'block';
+
+    const idx = { 'grid':0, 'new-order':1, 'view-order':2, 'locked':3, 'manage':4, 'add-table':5 };
+    document.querySelectorAll('.demo-tab')[idx[state]]?.classList.add('active');
+
+    if (state === 'grid')       { /* nothing extra */ }
+    if (state === 'new-order')  { document.getElementById('modal-new-order').classList.add('open'); }
+    if (state === 'view-order') { document.getElementById('panel-view-order').classList.add('open'); }
+    if (state === 'locked')     { document.getElementById('modal-locked').classList.add('open'); }
+    if (state === 'manage')     {
+      document.getElementById('view-grid').style.display = 'none';
+      document.getElementById('view-manage').style.display = 'block';
+    }
+    if (state === 'add-table')  { document.getElementById('modal-add-table').classList.add('open'); }
+  }
+
+  function closeModal(id) {
+    document.getElementById(id).classList.remove('open');
+    document.querySelectorAll('.demo-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.demo-tab')[0].classList.add('active');
+  }
+
+  function closePanel(id) {
+    document.getElementById(id).classList.remove('open');
+    document.querySelectorAll('.demo-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.demo-tab')[0].classList.add('active');
+  }
+
+  /* Filter tiles by state */
+  function filterTiles(state) {
+    document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('ftab-' + (state === 'all' ? 'all' : state)).classList.add('active');
+    document.querySelectorAll('#tile-grid .tile, #tile-grid .tile-add').forEach(tile => {
+      if (tile.classList.contains('tile-add')) {
+        tile.style.display = (state === 'all') ? '' : 'none';
+        return;
+      }
+      const ds = tile.dataset.state;
+      tile.style.display = (state === 'all' || ds === state) ? '' : 'none';
+    });
+  }
+
+  /* Sync indicator flash */
+  function flashSync() {
+    const dot  = document.getElementById('sync-dot');
+    const text = document.getElementById('sync-text');
+    dot.classList.add('stale');
+    text.textContent = 'Refreshing…';
+    setTimeout(() => {
+      dot.classList.remove('stale');
+      text.textContent = 'Live · just now';
+    }, 900);
+    setTimeout(() => { text.textContent = 'Live · synced 1s ago'; }, 2500);
+  }
+
+  /* Simulate live tick */
+  let secs = 2;
+  setInterval(() => {
+    secs++;
+    const t = document.getElementById('sync-text');
+    if (t && !t.textContent.startsWith('Refresh')) {
+      t.textContent = `Live · synced ${secs}s ago`;
+      if (secs >= 30) { secs = 0; }
+    }
+  }, 1000);
+</script>
+
+</body>
+</html>
