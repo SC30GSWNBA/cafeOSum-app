@@ -7,7 +7,8 @@ const QUEUE_NAME = 'audit-events'
 let boss: PgBoss | null = null
 
 export async function startAuditQueue() {
-  const db = process.env.DIRECT_URL ?? process.env.DATABASE_URL
+  // PG_BOSS_URL must be Supabase session-mode pooler (port 5432 on pooler host) to support LISTEN/NOTIFY over IPv4
+  const db = process.env.PG_BOSS_URL ?? process.env.DIRECT_URL ?? process.env.DATABASE_URL
   if (!db) throw new Error('DATABASE_URL not set')
 
   boss = new PgBoss({ connectionString: db, schema: 'pgboss' })

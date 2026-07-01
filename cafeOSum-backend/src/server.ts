@@ -77,7 +77,11 @@ await app.register(auditRoutes,     { prefix: '/api/v1/audit' })
 // ── Start ─────────────────────────────────────────────────────────────────────
 
 try {
-  await startAuditQueue()
+  try {
+    await startAuditQueue()
+  } catch (queueErr) {
+    app.log.warn({ err: queueErr }, 'Audit queue failed to start — audit logging disabled')
+  }
   await app.listen({ port: PORT, host: '0.0.0.0' })
   app.log.info(`CafeOSum API running on port ${PORT}`)
 } catch (err) {
