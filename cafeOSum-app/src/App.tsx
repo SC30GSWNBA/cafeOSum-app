@@ -6,16 +6,28 @@ import { OnboardingPage } from './pages/OnboardingPage'
 import { TablesPage } from './pages/TablesPage'
 import { OrderEntryPage } from './pages/OrderEntryPage'
 import { BillingPage } from './pages/BillingPage'
+import { BillingOverviewPage } from './pages/BillingOverviewPage'
 import { InventoryPage } from './pages/InventoryPage'
 import { AnalyticsPage } from './pages/AnalyticsPage'
 import { AuditLogPage } from './pages/AuditLogPage'
 import { MenuPage } from './pages/MenuPage'
 import { OrdersPage } from './pages/OrdersPage'
 import { useAuthStore } from './store/authStore'
+import { useOnboardingStore } from './store/onboardingStore'
 
+// Requires auth only — used for /onboarding itself
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuthStore()
   if (!isAuthenticated) return <Navigate to="/auth" replace />
+  return <>{children}</>
+}
+
+// Requires auth + completed onboarding for THIS user — used for all app pages
+function OnboardedRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, user } = useAuthStore()
+  const { isComplete, completedForEmail } = useOnboardingStore()
+  if (!isAuthenticated) return <Navigate to="/auth" replace />
+  if (!isComplete || completedForEmail !== user?.email) return <Navigate to="/onboarding" replace />
   return <>{children}</>
 }
 
@@ -35,73 +47,81 @@ export default function App() {
         <Route
           path="/dashboard"
           element={
-            <ProtectedRoute>
+            <OnboardedRoute>
               <DashboardPage />
-            </ProtectedRoute>
+            </OnboardedRoute>
           }
         />
         <Route
           path="/tables"
           element={
-            <ProtectedRoute>
+            <OnboardedRoute>
               <TablesPage />
-            </ProtectedRoute>
+            </OnboardedRoute>
           }
         />
         <Route
           path="/order/:tableId"
           element={
-            <ProtectedRoute>
+            <OnboardedRoute>
               <OrderEntryPage />
-            </ProtectedRoute>
+            </OnboardedRoute>
+          }
+        />
+        <Route
+          path="/billing"
+          element={
+            <OnboardedRoute>
+              <BillingOverviewPage />
+            </OnboardedRoute>
           }
         />
         <Route
           path="/billing/:tableId"
           element={
-            <ProtectedRoute>
+            <OnboardedRoute>
               <BillingPage />
-            </ProtectedRoute>
+            </OnboardedRoute>
           }
         />
         <Route
           path="/inventory"
           element={
-            <ProtectedRoute>
+            <OnboardedRoute>
               <InventoryPage />
-            </ProtectedRoute>
+            </OnboardedRoute>
           }
         />
         <Route
           path="/analytics"
           element={
-            <ProtectedRoute>
+            <OnboardedRoute>
               <AnalyticsPage />
-            </ProtectedRoute>
+            </OnboardedRoute>
           }
         />
         <Route
           path="/audit-log"
           element={
-            <ProtectedRoute>
+            <OnboardedRoute>
               <AuditLogPage />
-            </ProtectedRoute>
+            </OnboardedRoute>
           }
         />
         <Route
           path="/menu"
           element={
-            <ProtectedRoute>
+            <OnboardedRoute>
               <MenuPage />
-            </ProtectedRoute>
+            </OnboardedRoute>
           }
         />
         <Route
           path="/orders"
           element={
-            <ProtectedRoute>
+            <OnboardedRoute>
               <OrdersPage />
-            </ProtectedRoute>
+            </OnboardedRoute>
           }
         />
         <Route path="*" element={<Navigate to="/auth" replace />} />

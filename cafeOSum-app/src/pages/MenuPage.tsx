@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AppSidebar } from '../components/AppSidebar'
 import { LanguageToggle } from '../components/LanguageToggle'
-import { useOnboardingStore, type MenuItem } from '../store/onboardingStore'
+import { useMenuStore, type MenuItem } from '../store/menuStore'
 import { useLanguageStore } from '../store/languageStore'
 
 const C = {
@@ -41,17 +41,19 @@ const EMPTY_FORM: FormState = { name: '', hindiName: '', price: '', category: ''
 
 export function MenuPage() {
   const navigate = useNavigate()
-  const ob = useOnboardingStore()
+  const menu = useMenuStore()
   const [catFilter, setCatFilter] = useState('All')
   const [mode, setMode] = useState<ModalMode>('none')
   const [target, setTarget] = useState<MenuItem | null>(null)
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [err, setErr] = useState('')
-  const [showCatSuggestions, setShowCatSuggestions] = useState(false)
+  const [saving, setSaving] = useState(false)
 
   const { lang } = useLanguageStore()
   const hi = lang === 'hi'
-  const items = ob.menuItems
+  const items = menu.items
+
+  useEffect(() => { menu.fetch() }, [])
   const categories = ['All', ...Array.from(new Set(items.map((i) => i.category)))]
   const filtered = catFilter === 'All' ? items : items.filter((i) => i.category === catFilter)
 
@@ -68,33 +70,49 @@ export function MenuPage() {
 
   function closeModal() { setMode('none'); setTarget(null); setErr('') }
 
-  function handleSave() {
+  async function handleSave() {
     if (!form.name.trim()) { setErr(hi ? 'वस्तु का नाम आवश्यक है' : 'Item name is required'); return }
     const price = parseFloat(form.price)
     if (!form.price || isNaN(price) || price <= 0) { setErr(hi ? 'वैध मूल्य दर्ज करें' : 'Enter a valid price'); return }
     if (!form.category.trim()) { setErr(hi ? 'श्रेणी आवश्यक है' : 'Category is required'); return }
 
+    const taxRate = parseFloat(form.gstRate.replace('%', '')) || 0
     const data = {
       name: form.name.trim(),
       hindiName: form.hindiName.trim() || undefined,
       price,
       category: form.category.trim(),
-      gstRate: form.gstRate,
+      taxRate,
     }
 
-    if (mode === 'add') {
-      const newItem: MenuItem = { ...data, id: `item-${Date.now()}`, isDemo: false }
-      ob.update({ menuItems: [...items, newItem] })
-    } else if (mode === 'edit' && target) {
-      ob.update({ menuItems: items.map((i) => (i.id === target.id ? { ...i, ...data } : i)) })
+    setSaving(true)
+    try {
+      if (mode === 'add') {
+        await menu.add(data)
+      } else if (mode === 'edit' && target) {
+        await menu.edit(target.id, data)
+      }
+      closeModal()
+    } catch (e: unknown) {
+      const msg = (e as { data?: { error?: string } })?.data?.error
+      setErr(msg ?? (hi ? 'सेव करने में त्रुटि हुई' : 'Failed to save item'))
+    } finally {
+      setSaving(false)
     }
-    closeModal()
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!target) return
-    ob.update({ menuItems: items.filter((i) => i.id !== target.id) })
-    closeModal()
+    setSaving(true)
+    try {
+      await menu.remove(target.id)
+      closeModal()
+    } catch (e: unknown) {
+      const msg = (e as { data?: { error?: string } })?.data?.error
+      setErr(msg ?? (hi ? 'वस्तु हटाने में त्रुटि हुई' : 'Failed to delete item'))
+    } finally {
+      setSaving(false)
+    }
   }
 
   function setF(k: keyof FormState, v: string) { setForm((f) => ({ ...f, [k]: v })) }
@@ -163,8 +181,8 @@ export function MenuPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span style={{ fontSize: 28 }}>{catEmoji(item.category)}</span>
                     <div style={{ flex: 1 }} />
-                    {item.isDemo && (
-                      <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 10, background: C.blueBg, color: C.blue, border: `1px solid ${C.blueBorder}` }}>DEMO</span>
+                    {!item.isAvailable && (
+                      <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 10, background: C.redBg, color: C.red, border: `1px solid ${C.redBorder}` }}>OFF</span>
                     )}
                     <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 10, background: C.amberBg, color: C.amber, border: `1px solid ${C.amberBorder}` }}>GST {item.gstRate}</span>
                   </div>
@@ -269,29 +287,18 @@ export function MenuPage() {
               </div>
 
               {/* Category */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 5, position: 'relative' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                 <label style={{ fontSize: 12, fontWeight: 600, color: C.gray600 }}>{hi ? 'श्रेणी *' : 'Category *'}</label>
-                <input
+                <select
                   value={form.category}
-                  onChange={(e) => { setF('category', e.target.value); setShowCatSuggestions(true) }}
-                  onFocus={() => setShowCatSuggestions(true)}
-                  onBlur={() => setTimeout(() => setShowCatSuggestions(false), 150)}
-                  placeholder="e.g. 🍵 Tea"
-                  style={{ padding: '9px 12px', border: `1.5px solid ${C.gray200}`, borderRadius: 8, fontSize: 13, color: C.brownDark, background: C.gray50, outline: 'none', fontFamily: 'inherit' }}
-                />
-                {showCatSuggestions && (
-                  <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'white', border: `1px solid ${C.gray200}`, borderRadius: 8, boxShadow: '0 4px 16px rgba(59,31,14,0.12)', zIndex: 10, overflow: 'hidden', marginTop: 2 }}>
-                    {CATEGORY_PRESETS.filter((p) => p.toLowerCase().includes(form.category.toLowerCase())).map((p) => (
-                      <button
-                        key={p}
-                        onMouseDown={() => { setF('category', p); setShowCatSuggestions(false) }}
-                        style={{ display: 'block', width: '100%', textAlign: 'left', padding: '9px 12px', border: 'none', background: 'white', cursor: 'pointer', fontSize: 13, color: C.brownDark, fontFamily: 'inherit' }}
-                        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = C.gray50 }}
-                        onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'white' }}
-                      >{p}</button>
-                    ))}
-                  </div>
-                )}
+                  onChange={(e) => setF('category', e.target.value)}
+                  style={{ padding: '9px 12px', border: `1.5px solid ${C.gray200}`, borderRadius: 8, fontSize: 13, color: form.category ? C.brownDark : C.gray400, background: C.gray50, outline: 'none', fontFamily: 'inherit', cursor: 'pointer' }}
+                >
+                  <option value="" disabled>{hi ? 'श्रेणी चुनें' : 'Select a category'}</option>
+                  {CATEGORY_PRESETS.map((p) => (
+                    <option key={p} value={p}>{hi ? (CAT_HI[p] ?? p) : p}</option>
+                  ))}
+                </select>
               </div>
 
               {err && <div style={{ fontSize: 12, color: C.red, fontWeight: 600 }}>⚠️ {err}</div>}
@@ -299,9 +306,9 @@ export function MenuPage() {
 
             {/* Footer */}
             <div style={{ padding: '13px 18px', borderTop: `1px solid ${C.gray100}`, display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button onClick={closeModal} style={{ padding: '9px 20px', background: 'white', color: C.gray600, border: `1px solid ${C.gray200}`, borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>{hi ? 'रद्द करें' : 'Cancel'}</button>
-              <button onClick={handleSave} style={{ padding: '9px 20px', background: C.brownDark, color: 'white', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-                {mode === 'add' ? (hi ? '+ वस्तु जोड़ें' : '+ Add Item') : (hi ? '✓ बदलाव सहेजें' : '✓ Save Changes')}
+              <button onClick={closeModal} disabled={saving} style={{ padding: '9px 20px', background: 'white', color: C.gray600, border: `1px solid ${C.gray200}`, borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>{hi ? 'रद्द करें' : 'Cancel'}</button>
+              <button onClick={handleSave} disabled={saving} style={{ padding: '9px 20px', background: saving ? C.gray400 : C.brownDark, color: 'white', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+                {saving ? '…' : mode === 'add' ? (hi ? '+ वस्तु जोड़ें' : '+ Add Item') : (hi ? '✓ बदलाव सहेजें' : '✓ Save Changes')}
               </button>
             </div>
           </div>
@@ -323,12 +330,13 @@ export function MenuPage() {
               </div>
               <button onClick={closeModal} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${C.gray200}`, background: 'white', cursor: 'pointer', fontSize: 14, color: C.gray400 }}>✕</button>
             </div>
-            <div style={{ padding: 18, fontSize: 13, color: C.gray600, lineHeight: 1.6 }}>
-              {hi ? <><strong>{target.name}</strong> को मेनू से हटा दिया जाएगा। मौजूदा बिल प्रभावित नहीं होंगे।</> : <>This will remove <strong>{target.name}</strong> from the menu. Existing bills will not be affected.</>}
+            <div style={{ padding: 18, fontSize: 13, color: C.gray600, lineHeight: 1.6, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div>{hi ? <><strong>{target.name}</strong> को मेनू से हटा दिया जाएगा। मौजूदा बिल प्रभावित नहीं होंगे।</> : <>This will remove <strong>{target.name}</strong> from the menu. Existing bills will not be affected.</>}</div>
+              {err && <div style={{ fontSize: 12, color: C.red, fontWeight: 600 }}>⚠️ {err}</div>}
             </div>
             <div style={{ padding: '13px 18px', borderTop: `1px solid ${C.gray100}`, display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button onClick={closeModal} style={{ padding: '9px 20px', background: 'white', color: C.gray600, border: `1px solid ${C.gray200}`, borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>{hi ? 'रद्द करें' : 'Cancel'}</button>
-              <button onClick={handleDelete} style={{ padding: '9px 20px', background: C.red, color: 'white', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>{hi ? 'हटाएं' : 'Delete'}</button>
+              <button onClick={closeModal} disabled={saving} style={{ padding: '9px 20px', background: 'white', color: C.gray600, border: `1px solid ${C.gray200}`, borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>{hi ? 'रद्द करें' : 'Cancel'}</button>
+              <button onClick={handleDelete} disabled={saving} style={{ padding: '9px 20px', background: saving ? C.gray400 : C.red, color: 'white', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>{saving ? '…' : (hi ? 'हटाएं' : 'Delete')}</button>
             </div>
           </div>
         </div>

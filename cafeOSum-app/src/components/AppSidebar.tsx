@@ -1,6 +1,10 @@
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
+import { useMenuStore } from '../store/menuStore'
+import { useTableStore } from '../store/tableStore'
 import { useInventoryStore } from '../store/inventoryStore'
+import { useBillStore } from '../store/billStore'
+import { useAuditStore } from '../store/auditStore'
 import { useLanguageStore } from '../store/languageStore'
 
 const NAV_ITEMS = [
@@ -9,7 +13,7 @@ const NAV_ITEMS = [
     items: [
       { icon: '⊞', label: 'Dashboard', route: '/dashboard' },
       { icon: '📋', label: 'Menu', route: '/menu' },
-      { icon: '🧾', label: 'Billing / POS', route: '/tables' },
+      { icon: '🧾', label: 'Billing / POS', route: '/billing' },
       { icon: '📑', label: 'Orders', route: '/orders' },
     ],
   },
@@ -121,7 +125,14 @@ export function AppSidebar({ activeRoute }: { activeRoute: string }) {
           </div>
         </div>
         <button
-          onClick={() => { useLanguageStore.getState().setLang('en'); logout(); navigate('/auth') }}
+          onClick={() => {
+            useMenuStore.getState().clearData()
+            useTableStore.getState().clearData()
+            useInventoryStore.getState().clearData()
+            useLanguageStore.getState().setLang('en')
+            logout()
+            navigate('/auth')
+          }}
           style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 500, color: '#DC2626', background: '#FEE2E2', border: 'none', width: '100%' }}
         >
           <span>↪</span> Logout

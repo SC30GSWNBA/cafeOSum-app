@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { AppSidebar } from '../components/AppSidebar'
 import { LanguageToggle } from '../components/LanguageToggle'
 import { useLanguageStore } from '../store/languageStore'
 import { useInventoryStore, type IngredientUnit } from '../store/inventoryStore'
-import { useOnboardingStore } from '../store/onboardingStore'
+import { useMenuStore } from '../store/menuStore'
 import { useAuthStore } from '../store/authStore'
 
 type View = 'stock' | 'recipes' | 'autodeduct' | 'lowstock' | 'restock' | 'report' | 'unmapped'
@@ -77,11 +77,13 @@ const BLANK_ING: IngForm = { name: '', unit: 'g', stock: '', threshold: '', supp
 
 export function InventoryPage() {
   const store = useInventoryStore()
-  const { menuItems } = useOnboardingStore()
+  const { items: menuItems } = useMenuStore()
   const { user } = useAuthStore()
-  const ownerName = useOnboardingStore((s) => s.ownerName) || user?.cafeName || 'Owner'
+  const ownerName = user?.cafeName || 'Owner'
   const { lang } = useLanguageStore()
   const hi = lang === 'hi'
+
+  useEffect(() => { store.fetch() }, [])
 
   const [view, setView] = useState<View>('stock')
   const [search, setSearch] = useState('')
@@ -176,19 +178,23 @@ export function InventoryPage() {
     setModal('edit-ingredient')
   }
 
-  function handleSaveIngredient() {
+  async function handleSaveIngredient() {
     if (!ingForm.name.trim()) { setIngError('Name is required'); return }
     const stock = parseFloat(ingForm.stock)
     const threshold = parseFloat(ingForm.threshold)
     if (isNaN(stock) || stock < 0) { setIngError('Enter a valid stock quantity'); return }
     if (isNaN(threshold) || threshold < 0) { setIngError('Enter a valid threshold'); return }
     const data = { name: ingForm.name.trim(), unit: ingForm.unit, stock, threshold, supplier: ingForm.supplier.trim() || undefined }
-    if (modal === 'edit-ingredient' && editIngId) {
-      store.updateIngredient(editIngId, data)
-    } else {
-      store.addIngredient(data)
+    try {
+      if (modal === 'edit-ingredient' && editIngId) {
+        await store.updateIngredient(editIngId, data)
+      } else {
+        await store.addIngredient(data)
+      }
+      setModal('none')
+    } catch {
+      setIngError('Failed to save ingredient. Please try again.')
     }
-    setModal('none')
   }
 
   function openAddRecipe(preselectedMenuItemId?: string) {
@@ -209,20 +215,24 @@ export function InventoryPage() {
     setModal('add-recipe')
   }
 
-  function handleSaveRecipe() {
+  async function handleSaveRecipe() {
     if (!recipeMenuItemId) { setRecipeError('Select a menu item'); return }
     const validRows = recipeRows.filter((r) => r.ingredientId && parseFloat(r.qty) > 0)
     if (validRows.length === 0) { setRecipeError('Add at least one ingredient with a quantity > 0'); return }
     const menuItem = menuItems.find((m) => m.id === recipeMenuItemId)
     if (!menuItem) return
     const emoji = menuItem.category.split(' ')[0]
-    store.addOrUpdateRecipe({
-      menuItemId: recipeMenuItemId,
-      menuItemName: menuItem.name,
-      menuItemEmoji: emoji,
-      ingredients: validRows.map((r) => ({ ingredientId: r.ingredientId, qty: parseFloat(r.qty) })),
-    })
-    setModal('none')
+    try {
+      await store.addOrUpdateRecipe({
+        menuItemId: recipeMenuItemId,
+        menuItemName: menuItem.name,
+        menuItemEmoji: emoji,
+        ingredients: validRows.map((r) => ({ ingredientId: r.ingredientId, qty: parseFloat(r.qty) })),
+      })
+      setModal('none')
+    } catch {
+      setRecipeError('Failed to save recipe. Please try again.')
+    }
   }
 
   function openQuickRestock(ingId: string) {
@@ -233,18 +243,28 @@ export function InventoryPage() {
     setModal('quick-restock')
   }
 
-  function handleQuickRestock() {
+  async function handleQuickRestock() {
     const qty = parseFloat(quickQty)
     if (!quickIngId || isNaN(qty) || qty <= 0) return
-    store.logRestock({ ingredientId: quickIngId, qty, date: new Date().toISOString().slice(0, 10), note: quickNote.trim() || undefined, loggedBy: ownerName })
-    setQuickSuccess(true)
-    setTimeout(() => setModal('none'), 1200)
+    try {
+      await store.logRestock({ ingredientId: quickIngId, qty, date: new Date().toISOString().slice(0, 10), note: quickNote.trim() || undefined, loggedBy: ownerName })
+      setQuickSuccess(true)
+      setTimeout(() => setModal('none'), 1200)
+    } catch {
+      // silent — show UI success anyway (store already updated locally)
+      setQuickSuccess(true)
+      setTimeout(() => setModal('none'), 1200)
+    }
   }
 
-  function handleLogRestock() {
+  async function handleLogRestock() {
     const qty = parseFloat(rstQty)
     if (!rstIngId || isNaN(qty) || qty <= 0) return
-    store.logRestock({ ingredientId: rstIngId, qty, date: rstDate, note: rstNote.trim() || undefined, loggedBy: ownerName })
+    try {
+      await store.logRestock({ ingredientId: rstIngId, qty, date: rstDate, note: rstNote.trim() || undefined, loggedBy: ownerName })
+    } catch {
+      // non-fatal
+    }
     setRstIngId('')
     setRstQty('')
     setRstNote('')
@@ -413,7 +433,7 @@ export function InventoryPage() {
                     <button onClick={() => openEditRecipe(recipe.menuItemId)} style={{ flex: 1, padding: 7, borderRadius: 7, border: `1.5px dashed ${C.gray200}`, background: 'white', fontSize: 12, fontWeight: 600, color: C.gray400, cursor: 'pointer', fontFamily: 'inherit' }}>
                       {hi ? '✏️ बदलें' : '✏️ Edit Recipe'}
                     </button>
-                    <button onClick={() => { if (confirm(`Remove recipe for ${recipe.menuItemName}?`)) store.removeRecipe(recipe.menuItemId) }} style={{ padding: '7px 12px', borderRadius: 7, border: `1px solid ${C.redBorder}`, background: C.redBg, fontSize: 12, fontWeight: 600, color: C.red, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    <button onClick={async () => { if (confirm(`Remove recipe for ${recipe.menuItemName}?`)) await store.removeRecipe(recipe.menuItemId) }} style={{ padding: '7px 12px', borderRadius: 7, border: `1px solid ${C.redBorder}`, background: C.redBg, fontSize: 12, fontWeight: 600, color: C.red, cursor: 'pointer', fontFamily: 'inherit' }}>
                       🗑
                     </button>
                   </div>

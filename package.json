@@ -1,0 +1,14 @@
+{
+  "name": "cafeosum",
+  "private": true,
+  "version": "0.0.0",
+  "workspaces": [
+    "cafeOSum-app",
+    "cafeOSum-backend"
+  ],
+  "scripts": {
+    "dev:app": "npm run dev --workspace=cafeOSum-app",
+    "dev:api": "npm run dev --workspace=cafeOSum-backend",
+    "build:api": "npm run build --workspace=cafeOSum-backend"
+  }
+}

@@ -1539,14 +1539,27 @@ function Step5View({
 // ── Main OnboardingPage ───────────────────────────────────────────
 export function OnboardingPage() {
   const navigate = useNavigate()
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, user } = useAuthStore()
   const store = useOnboardingStore()
 
   useEffect(() => {
-    if (!isAuthenticated) navigate('/auth', { replace: true })
-  }, [isAuthenticated, navigate])
+    if (!isAuthenticated) { navigate('/auth', { replace: true }); return }
+    // If the stored data belongs to a different user, wipe it before they start filling
+    if (user?.email) {
+      const state = useOnboardingStore.getState()
+      if (state.ownerEmail !== null && state.ownerEmail !== user.email) {
+        state.reset()
+      }
+      if (state.ownerEmail !== user.email) {
+        state.setOwner(user.email)
+      }
+    }
+  }, [isAuthenticated, navigate, user?.email])
 
-  const handleSaveExit = () => navigate('/dashboard')
+  const handleSaveExit = () => {
+    store.finish(user?.email ?? '')
+    navigate('/dashboard')
+  }
 
   const handleStep1Next = (data: Step1Values) => {
     store.update({ ...data, step: 2 })
@@ -1565,7 +1578,7 @@ export function OnboardingPage() {
   }
 
   const handleFinish = () => {
-    store.finish()
+    store.finish(user?.email ?? '')
     navigate('/dashboard')
   }
 

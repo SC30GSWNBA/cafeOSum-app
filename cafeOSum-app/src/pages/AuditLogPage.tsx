@@ -88,6 +88,7 @@ const tdStyle: React.CSSProperties = {
 // ── Page component ───────────────────────────────────────────────────────────
 export function AuditLogPage() {
   const allEvents = useAuditStore((s) => s.events)
+  const fetchAudit = useAuditStore((s) => s.fetch)
   const { lang } = useLanguageStore()
   const hi = lang === 'hi'
 
@@ -97,6 +98,8 @@ export function AuditLogPage() {
   const [catFilter, setCatFilter] = useState('all')
   const [page, setPage] = useState(1)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+
+  useEffect(() => { fetchAudit() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const uniqueUsers = useMemo(
     () => [...new Set(allEvents.map((e) => e.userId).filter((u) => u && u !== '—'))].sort(),

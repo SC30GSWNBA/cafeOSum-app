@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { useTableStore } from '../store/tableStore'
-import { useOnboardingStore } from '../store/onboardingStore'
 import type { TableRecord, TableStatus } from '../store/tableStore'
 import { LanguageToggle } from '../components/LanguageToggle'
 import { useLanguageStore } from '../store/languageStore'
@@ -10,6 +9,7 @@ import { Modal, ModalHeader, ModalBody, ModalFooter } from '../components/ui/Mod
 import { BtnPrimary, BtnSecondary, BtnDanger, BtnSuccess } from '../components/ui/Btn'
 import { PageShell } from '../components/ui/PageShell'
 import { toast } from '../store/toastStore'
+import { API_BASE } from '../lib/api'
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 function formatElapsed(openedAt: number | null): string {
@@ -65,17 +65,17 @@ function TableTile({ table, onClick }: { table: TableRecord; onClick: () => void
       onMouseEnter={(e) => { if (!isLocked) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(59,31,14,0.1)' } }}
       onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none' }}
     >
-      {/* Elapsed chip */}
-      {elapsed && (
-        <div style={{ position: 'absolute', top: 10, right: 10, fontSize: 10, fontWeight: 600, color: c.status, background: isLocked ? 'rgba(220,38,38,0.12)' : 'rgba(217,119,6,0.12)', padding: '2px 6px', borderRadius: 10 }}>
-          {elapsed}
-        </div>
-      )}
-
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: '#3B1F0E', lineHeight: 1.2 }}>{table.name}</div>
-        <div style={{ fontSize: 18, opacity: 0.7 }}>{c.icon}</div>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8, gap: 6 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: '#3B1F0E', lineHeight: 1.2, flex: 1, minWidth: 0 }}>{table.name}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+          {elapsed && (
+            <div style={{ fontSize: 10, fontWeight: 600, color: c.status, background: isLocked ? 'rgba(220,38,38,0.12)' : 'rgba(217,119,6,0.12)', padding: '2px 6px', borderRadius: 10, whiteSpace: 'nowrap' }}>
+              {elapsed}
+            </div>
+          )}
+          <div style={{ fontSize: 18, opacity: 0.7 }}>{c.icon}</div>
+        </div>
       </div>
 
       <div style={{ height: 1, background: 'rgba(0,0,0,0.07)', marginBottom: 8 }} />
@@ -464,9 +464,8 @@ function ManageView({ tables, onAdd, onEdit, onDelete }: {
 // ── MAIN PAGE ─────────────────────────────────────────────────────────────
 export function TablesPage() {
   const navigate = useNavigate()
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, token } = useAuthStore()
   const store = useTableStore()
-  const onboarding = useOnboardingStore()
   const { lang } = useLanguageStore()
   const hi = lang === 'hi'
 
@@ -476,7 +475,7 @@ export function TablesPage() {
   const [view, setView] = useState<View>('grid')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [editTarget, setEditTarget] = useState<TableRecord | null>(null)
-  const [syncSecs, setSyncSecs] = useState(2)
+  const [lastSync, setLastSync] = useState<Date | null>(null)
   const [tick, setTick] = useState(0)
 
   // Auth guard
@@ -484,26 +483,27 @@ export function TablesPage() {
     if (!isAuthenticated) navigate('/auth', { replace: true })
   }, [isAuthenticated, navigate])
 
-  // Seed tables from onboarding on first load
+  // Load tables from API on mount
   useEffect(() => {
-    if (store.tables.length === 0) {
-      const src = onboarding.tables.length > 0
-        ? onboarding.tables
-        : [
-            { id: 'default-1', name: 'Table 1', seats: 4 },
-            { id: 'default-2', name: 'Table 2', seats: 4 },
-            { id: 'default-3', name: 'Window Seat', seats: 2 },
-          ]
-      store.seed(src)
-    }
+    store.fetch()
   }, [])
 
-  // Tick for elapsed times + sync indicator
+  // SSE — real-time occupancy updates
   useEffect(() => {
-    const t = setInterval(() => {
-      setTick((n) => n + 1)
-      setSyncSecs((s) => (s >= 29 ? 1 : s + 1))
-    }, 1000)
+    if (!token) return
+    const es = new EventSource(`${API_BASE}/tables/occupancy-stream?token=${encodeURIComponent(token)}`)
+    es.onmessage = (e) => {
+      try {
+        store.applySSE(JSON.parse(e.data))
+        setLastSync(new Date())
+      } catch {}
+    }
+    return () => es.close()
+  }, [token])
+
+  // Tick for elapsed times
+  useEffect(() => {
+    const t = setInterval(() => setTick((n) => n + 1), 1000)
     return () => clearInterval(t)
   }, [])
 
@@ -534,11 +534,11 @@ export function TablesPage() {
     navigate(`/order/${id}`)
   }
 
-  const handleGenerateBill = () => {
+  const handleGenerateBill = async () => {
     if (!selectedId) return
     const id = selectedId
-    store.generateBill(id)
     closeAll()
+    await store.generateBill(id)
     navigate(`/billing/${id}`)
   }
 
@@ -559,10 +559,14 @@ export function TablesPage() {
     setModal('edit-table')
   }
 
-  const handleSaveTable = (name: string, seats: number, type: string) => {
-    if (editTarget) { store.edit(editTarget.id, name, seats, type); toast(`${name} updated`) }
-    else { store.add(name, seats, type); toast(`${name} added`) }
-    closeAll()
+  const handleSaveTable = async (name: string, seats: number, type: string) => {
+    try {
+      if (editTarget) { await store.edit(editTarget.id, name, seats, type); toast(`${name} updated`) }
+      else { await store.add(name, seats, type); toast(`${name} added`) }
+      closeAll()
+    } catch (err: unknown) {
+      toast((err as Error)?.message ?? 'Failed to save table')
+    }
   }
 
   const FILTER_TABS: { key: Filter; label: string }[] = [
@@ -581,9 +585,9 @@ export function TablesPage() {
           <LanguageToggle />
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#2E8B57', background: '#E8F5EE', border: '1px solid #86EFAC', padding: '4px 10px', borderRadius: 20, fontWeight: 500 }}>
             <div className="animate-pulse" style={{ width: 7, height: 7, borderRadius: '50%', background: '#2E8B57' }} />
-            {hi ? `लाइव · ${syncSecs}s पहले सिंक` : `Live · synced ${syncSecs}s ago`}
+            {lastSync ? (hi ? `लाइव · ${formatElapsed(lastSync.getTime())} पहले` : `Live · ${formatElapsed(lastSync.getTime()) || '< 1 min'} ago`) : (hi ? 'कनेक्ट हो रहा है…' : 'Connecting…')}
           </div>
-          <button onClick={() => setSyncSecs(0)} style={{ width: 34, height: 34, borderRadius: 8, background: '#F9F5F0', border: '1px solid #DDD5C8', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 14, color: '#6B5B4E' }}>↻</button>
+          <button onClick={() => store.fetch()} style={{ width: 34, height: 34, borderRadius: 8, background: '#F9F5F0', border: '1px solid #DDD5C8', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 14, color: '#6B5B4E' }}>↻</button>
           <BtnPrimary onClick={handleAddTable} disabled={store.tables.length >= 50}>{hi ? '＋ टेबल जोड़ें' : '＋ Add Table'}</BtnPrimary>
         </>
       }
@@ -690,7 +694,14 @@ export function TablesPage() {
             tables={store.tables}
             onAdd={handleAddTable}
             onEdit={handleEditTable}
-            onDelete={(id) => store.remove(id)}
+            onDelete={async (id) => {
+              try {
+                await store.remove(id)
+                toast('Table removed')
+              } catch (err: unknown) {
+                toast((err as Error)?.message ?? 'Cannot delete table')
+              }
+            }}
           />
         )}
 

@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AppSidebar } from '../components/AppSidebar'
 import { LanguageToggle } from '../components/LanguageToggle'
@@ -43,6 +44,11 @@ export function OrdersPage() {
   const { lang } = useLanguageStore()
   const hi = lang === 'hi'
   const menuItems = useOnboardingStore((s) => s.menuItems)
+
+  useEffect(() => {
+    tableStore.fetch()
+    billStore.fetch()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const liveTables = tableStore.tables.filter((t) => t.status === 'occupied' || t.status === 'bill-pending')
   const recentBills = [...billStore.bills].sort((a, b) => b.settledAt - a.settledAt).slice(0, 20)

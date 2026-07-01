@@ -11,7 +11,11 @@ import {
   type LoginValues, type RegisterValues, type ForgotPasswordValues,
 } from '../lib/validators'
 import { useAuthStore } from '../store/authStore'
+import { useOnboardingStore } from '../store/onboardingStore'
+import { useBillStore } from '../store/billStore'
 import { useAuditStore } from '../store/auditStore'
+import { apiFetch, ApiError } from '../lib/api'
+import type { User } from '../types'
 
 type AuthView = 'login' | 'login-error' | 'login-locked' | 'register' | 'verify-banner' | 'forgot' | 'reset-sent'
 
@@ -109,9 +113,7 @@ function TermsText() {
 // ── LOGIN VIEW ───────────────────────────────────────────────
 function LoginView({ setView }: { setView: (v: AuthView) => void }) {
   const { login } = useAuthStore()
-  const addEvent = useAuditStore((s) => s.addEvent)
   const navigate = useNavigate()
-  const [failedAttempts, setFailedAttempts] = useState(0)
   const [apiError, setApiError] = useState('')
 
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<LoginValues>({
@@ -121,51 +123,61 @@ function LoginView({ setView }: { setView: (v: AuthView) => void }) {
 
   const onSubmit = async (data: LoginValues) => {
     setApiError('')
-    // Simulate auth — replace with real API call
-    await new Promise((r) => setTimeout(r, 600))
-    const newAttempts = failedAttempts + 1
-
-    if (data.password !== 'demo@123') {
-      const isLockout = newAttempts >= 5
-      addEvent({
-        eventType: 'FAILED_LOGIN',
-        category: 'Auth',
-        userId: data.email,
-        entityType: 'Session',
-        entityId: 'auth',
-        payload: { email: data.email, attempt: newAttempts },
-        status: isLockout ? 'error' : 'warn',
-        summary: `Login failed (${newAttempts}${['st','nd','rd'][newAttempts-1]??'th'} attempt)` + (isLockout ? ' · Account locked 15 min' : ''),
-      })
-      if (isLockout) {
-        setView('login-locked')
-        return
+    try {
+      const result = await apiFetch<{ user: User; accessToken: string; refreshToken: string }>(
+        'POST', '/auth/login', { email: data.email, password: data.password }
+      )
+      login(result.user, result.accessToken, result.refreshToken)
+      // Wipe onboarding data if it belongs to a different user
+      const onboardingState = useOnboardingStore.getState()
+      if (onboardingState.ownerEmail !== null && onboardingState.ownerEmail !== result.user.email) {
+        onboardingState.reset()
       }
-      setFailedAttempts(newAttempts)
-      const remaining = 5 - newAttempts
-      setApiError(`Incorrect password. You have ${remaining} attempt${remaining === 1 ? '' : 's'} remaining before your account is locked for 15 minutes.`)
-      return
+      useOnboardingStore.getState().setOwner(result.user.email)
+      const { isComplete, completedForEmail } = useOnboardingStore.getState()
+      let onboardingDone = isComplete && completedForEmail === result.user.email
+      if (!onboardingDone) {
+        // Local state was wiped (e.g. another user logged in on this device) or cleared.
+        // Check the backend — if the cafe already has tables or menu items it is set up.
+        try {
+          const [tables, menuItems] = await Promise.all([
+            apiFetch<unknown[]>('GET', '/tables'),
+            apiFetch<unknown[]>('GET', '/cafe/menu'),
+          ])
+          if (tables.length > 0 || menuItems.length > 0) {
+            useOnboardingStore.getState().finish(result.user.email)
+            onboardingDone = true
+          }
+        } catch { /* backend unreachable — send to onboarding */ }
+      }
+      // Wipe bill data if it belongs to a different cafe
+      const billState = useBillStore.getState()
+      if (billState.ownerCafeId !== null && billState.ownerCafeId !== result.user.cafeId) {
+        billState.clearData()
+      }
+      useBillStore.getState().setOwner(result.user.cafeId ?? '')
+      // Wipe audit log if it belongs to a different cafe.
+      // Guard against ownerCafeId='' (set when cafeId was null at a previous login)
+      // to avoid incorrectly clearing the log on the next login with a real cafeId.
+      const auditState = useAuditStore.getState()
+      if (auditState.ownerCafeId !== null && auditState.ownerCafeId !== '' && auditState.ownerCafeId !== result.user.cafeId) {
+        auditState.clearData()
+      }
+      useAuditStore.getState().setOwner(result.user.cafeId ?? '')
+      navigate(onboardingDone ? '/dashboard' : '/onboarding')
+    } catch (err) {
+      if (err instanceof ApiError) {
+        if (err.status === 423) { setView('login-locked'); return }
+        const attemptsLeft = err.data.attemptsLeft as number | undefined
+        if (attemptsLeft !== undefined) {
+          setApiError(`Incorrect password. You have ${attemptsLeft} attempt${attemptsLeft === 1 ? '' : 's'} remaining before your account is locked for 15 minutes.`)
+        } else {
+          setApiError(err.message)
+        }
+      } else {
+        setApiError('Unable to connect. Please check your internet connection.')
+      }
     }
-
-    const user = {
-      id: '1',
-      email: data.email,
-      cafeName: 'Demo Cafe',
-      emailVerified: false,
-      createdAt: new Date().toISOString(),
-    }
-    login(user, 'demo-token')
-    addEvent({
-      eventType: 'LOGIN',
-      category: 'Auth',
-      userId: data.email,
-      entityType: 'Session',
-      entityId: 'auth',
-      payload: { email: data.email, remember_me: data.rememberMe ?? false },
-      status: 'ok',
-      summary: 'Login successful',
-    })
-    navigate('/dashboard')
   }
 
   return (
@@ -273,19 +285,36 @@ function AccountLockedView({ setView }: { setView: (v: AuthView) => void }) {
 
 // ── REGISTER VIEW ────────────────────────────────────────────
 function RegisterView({ setView }: { setView: (v: AuthView) => void }) {
+  const { login } = useAuthStore()
+  const [apiError, setApiError] = useState('')
   const { register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm<RegisterValues>({
     resolver: zodResolver(registerSchema),
   })
   const password = watch('password', '')
 
-  const onSubmit = async (_data: RegisterValues) => {
-    await new Promise((r) => setTimeout(r, 700))
-    setView('verify-banner')
+  const onSubmit = async (data: RegisterValues) => {
+    setApiError('')
+    try {
+      const result = await apiFetch<{ user: User; accessToken: string; refreshToken: string }>(
+        'POST', '/auth/register',
+        { email: data.email, password: data.password, cafeName: data.cafeName, name: data.ownerName }
+      )
+      // login() must be called BEFORE setView so the verify-banner's
+      // "Start Setup Wizard" button navigates as an authenticated user.
+      login(result.user, result.accessToken, result.refreshToken)
+      setView('verify-banner')  // → user clicks "Start Setup Wizard" → /onboarding
+    } catch (err) {
+      setApiError(err instanceof ApiError ? err.message : 'Unable to connect. Please try again.')
+    }
   }
 
   return (
     <FormPanel>
       <FormHeading title="Create your account" sub="Set up CafeOSum for your cafe — takes under 2 minutes." />
+
+      {apiError && (
+        <Alert variant="error"><strong>Registration failed.</strong> {apiError}</Alert>
+      )}
 
       <form onSubmit={handleSubmit(onSubmit)} noValidate>
         <FormField label="Cafe name" required error={errors.cafeName}>
@@ -406,11 +435,11 @@ function VerifyBannerView() {
           </button>
 
           <p
-            onClick={() => navigate('/dashboard')}
+            onClick={() => navigate('/onboarding')}
             className="text-xs mt-3.5 cursor-pointer hover:underline"
             style={{ color: '#9E8E7E' }}
           >
-            Skip for now — I'll set up later
+            Skip email verification — I'll verify later
           </p>
         </div>
       </div>
@@ -420,23 +449,15 @@ function VerifyBannerView() {
 
 // ── FORGOT PASSWORD VIEW ─────────────────────────────────────
 function ForgotPasswordView({ setView }: { setView: (v: AuthView) => void }) {
-  const addEvent = useAuditStore((s) => s.addEvent)
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<ForgotPasswordValues>({
     resolver: zodResolver(forgotPasswordSchema),
   })
 
   const onSubmit = async (data: ForgotPasswordValues) => {
-    await new Promise((r) => setTimeout(r, 600))
-    addEvent({
-      eventType: 'PASSWORD_RESET',
-      category: 'Auth',
-      userId: data.email,
-      entityType: 'Session',
-      entityId: 'auth',
-      payload: { email: data.email },
-      status: 'ok',
-      summary: `Password reset email sent · ${data.email}`,
-    })
+    try {
+      await apiFetch('POST', '/auth/forgot-password', { email: data.email })
+    } catch {}
+    // Always navigate to reset-sent — server never reveals whether email exists
     setView('reset-sent')
   }
 
@@ -565,12 +586,54 @@ const brandConfigs: Record<AuthView, { tagline: React.ReactNode; sub: string; st
 // ── ROOT AUTH PAGE ───────────────────────────────────────────
 export function AuthPage() {
   const [view, setView] = useState<AuthView>('login')
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, user } = useAuthStore()
   const navigate = useNavigate()
 
+  // Redirect already-logged-in users away from /auth on mount only.
+  // Do NOT watch isAuthenticated — login() called during registration would
+  // fire this effect and bypass the verify-banner → onboarding flow.
   useEffect(() => {
-    if (isAuthenticated) navigate('/dashboard', { replace: true })
-  }, [isAuthenticated, navigate])
+    if (!isAuthenticated || !user) return
+
+    // Bind per-user stores synchronously
+    const onboardingState = useOnboardingStore.getState()
+    if (onboardingState.ownerEmail !== null && onboardingState.ownerEmail !== user.email) {
+      onboardingState.reset()
+    }
+    useOnboardingStore.getState().setOwner(user.email)
+    const billState = useBillStore.getState()
+    if (billState.ownerCafeId !== null && billState.ownerCafeId !== user.cafeId) {
+      billState.clearData()
+    }
+    useBillStore.getState().setOwner(user.cafeId ?? '')
+    const auditState = useAuditStore.getState()
+    if (auditState.ownerCafeId !== null && auditState.ownerCafeId !== '' && auditState.ownerCafeId !== user.cafeId) {
+      auditState.clearData()
+    }
+    useAuditStore.getState().setOwner(user.cafeId ?? '')
+
+    const { isComplete, completedForEmail } = useOnboardingStore.getState()
+    if (isComplete && completedForEmail === user.email) {
+      navigate('/dashboard', { replace: true })
+      return
+    }
+
+    // Local state missing or wiped — verify against backend before forcing onboarding
+    void (async () => {
+      try {
+        const [tables, menuItems] = await Promise.all([
+          apiFetch<unknown[]>('GET', '/tables'),
+          apiFetch<unknown[]>('GET', '/cafe/menu'),
+        ])
+        if (tables.length > 0 || menuItems.length > 0) {
+          useOnboardingStore.getState().finish(user.email)
+          navigate('/dashboard', { replace: true })
+          return
+        }
+      } catch { /* backend unreachable */ }
+      navigate('/onboarding', { replace: true })
+    })()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const brand = brandConfigs[view]
 

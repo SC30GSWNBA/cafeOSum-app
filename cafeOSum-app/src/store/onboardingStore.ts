@@ -49,9 +49,12 @@ export interface OnboardingData {
 interface OnboardingStore extends OnboardingData {
   step: number
   isComplete: boolean
+  ownerEmail: string | null        // set at login — detects stale data from a different user
+  completedForEmail: string | null // set at finish — gates access to the dashboard
   goToStep: (n: number) => void
   update: (data: Partial<OnboardingData>) => void
-  finish: () => void
+  setOwner: (email: string) => void
+  finish: (email: string) => void
   reset: () => void
 }
 
@@ -90,10 +93,13 @@ export const useOnboardingStore = create<OnboardingStore>()(
       ...DEFAULT_DATA,
       step: 1,
       isComplete: false,
+      ownerEmail: null,
+      completedForEmail: null,
       goToStep: (n) => set({ step: n }),
       update: (data) => set(data),
-      finish: () => set({ isComplete: true }),
-      reset: () => set({ ...DEFAULT_DATA, step: 1, isComplete: false }),
+      setOwner: (email) => set({ ownerEmail: email }),
+      finish: (email) => set({ isComplete: true, completedForEmail: email }),
+      reset: () => set({ ...DEFAULT_DATA, step: 1, isComplete: false, ownerEmail: null, completedForEmail: null }),
     }),
     {
       name: 'cafeOSum-onboarding',

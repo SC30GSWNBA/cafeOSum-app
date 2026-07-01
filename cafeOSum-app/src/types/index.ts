@@ -1,32 +1,19 @@
 export interface User {
   id: string
   email: string
+  name: string | null
+  role: string
+  isVerified: boolean
+  cafeId: string | null
   cafeName: string
-  emailVerified: boolean
-  createdAt: string
 }
 
 export interface AuthState {
   user: User | null
   token: string | null
+  refreshToken: string | null
   isAuthenticated: boolean
-  login: (user: User, token: string) => void
+  login: (user: User, accessToken: string, refreshToken: string) => void
+  setTokens: (accessToken: string, refreshToken: string) => void
   logout: () => void
-}
-
-export interface LoginFormValues {
-  email: string
-  password: string
-  rememberMe: boolean
-}
-
-export interface RegisterFormValues {
-  cafeName: string
-  email: string
-  password: string
-  confirmPassword: string
-}
-
-export interface ForgotPasswordFormValues {
-  email: string
 }

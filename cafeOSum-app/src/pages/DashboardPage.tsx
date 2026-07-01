@@ -5,6 +5,7 @@ import { useTableStore } from '../store/tableStore'
 import { useBillStore } from '../store/billStore'
 import { useInventoryStore } from '../store/inventoryStore'
 import { useOnboardingStore } from '../store/onboardingStore'
+import { useMenuStore } from '../store/menuStore'
 import { PageShell } from '../components/ui/PageShell'
 import { LanguageToggle } from '../components/LanguageToggle'
 import { T } from '../lib/tokens'
@@ -74,7 +75,8 @@ export function DashboardPage() {
   const { tables } = useTableStore()
   const { bills } = useBillStore()
   const { ingredients } = useInventoryStore()
-  const { isComplete, menuItems, cafeName } = useOnboardingStore()
+  const { isComplete, cafeName } = useOnboardingStore()
+  const { items: menuItems } = useMenuStore()
 
   const today = useMemo(() => {
     const start = todayStart()
@@ -95,6 +97,7 @@ export function DashboardPage() {
     ingredients.filter((i) => i.threshold > 0 && i.stock < i.threshold).length,
     [ingredients]
   )
+  const noInventory = ingredients.length === 0
 
   const recentBills = useMemo(() =>
     [...bills]
@@ -179,9 +182,9 @@ export function DashboardPage() {
           <KpiCard
             icon="📦"
             label={hi ? 'कम स्टॉक अलर्ट' : 'Low Stock Alerts'}
-            value={lowStockCount === 0 ? (hi ? 'ठीक है' : 'All Good') : String(lowStockCount)}
-            sub={lowStockCount === 0 ? (hi ? 'सभी सामग्री पर्याप्त' : 'All ingredients above threshold') : `${lowStockCount} ingredient${lowStockCount !== 1 ? 's' : ''} below threshold`}
-            accent={lowStockCount === 0 ? '✓ OK' : undefined}
+            value={noInventory ? (hi ? 'सेटअप करें' : 'Setup') : lowStockCount === 0 ? (hi ? 'ठीक है' : 'All Good') : String(lowStockCount)}
+            sub={noInventory ? (hi ? 'कोई सामग्री नहीं जोड़ी गई' : 'No ingredients added yet') : lowStockCount === 0 ? (hi ? 'सभी सामग्री पर्याप्त' : 'All ingredients above threshold') : `${lowStockCount} ingredient${lowStockCount !== 1 ? 's' : ''} below threshold`}
+            accent={noInventory ? undefined : lowStockCount === 0 ? '✓ OK' : undefined}
             onClick={() => navigate('/inventory')}
           />
         </div>
@@ -198,7 +201,7 @@ export function DashboardPage() {
               {[
                 { icon: '🪑', label: hi ? 'टेबल प्रबंधन' : 'Manage Tables', sub: hi ? `${tableCounts.occupied} टेबल व्यस्त` : `${tableCounts.occupied} occupied right now`, route: '/tables', accent: T.green },
                 { icon: '📈', label: hi ? 'विश्लेषण' : 'View Analytics', sub: hi ? `आज ${today.count} बिल` : `${today.count} bills settled today`, route: '/analytics', accent: T.blue },
-                { icon: '📦', label: hi ? 'इन्वेंटरी' : 'Check Inventory', sub: lowStockCount > 0 ? `${lowStockCount} items low on stock` : (hi ? 'सब ठीक है' : 'All stocked up'), route: '/inventory', accent: lowStockCount > 0 ? T.amber : T.green },
+                { icon: '📦', label: hi ? 'इन्वेंटरी' : 'Check Inventory', sub: noInventory ? (hi ? 'अभी तक कुछ नहीं जोड़ा' : 'Nothing added yet') : lowStockCount > 0 ? `${lowStockCount} items low on stock` : (hi ? 'सब ठीक है' : 'All stocked up'), route: '/inventory', accent: noInventory ? T.gray400 : lowStockCount > 0 ? T.amber : T.green },
                 { icon: '📜', label: hi ? 'ऑडिट लॉग' : 'Audit Log', sub: hi ? 'सभी गतिविधियां देखें' : 'Review all platform events', route: '/audit-log', accent: T.gray400 },
               ].map((item) => (
                 <div

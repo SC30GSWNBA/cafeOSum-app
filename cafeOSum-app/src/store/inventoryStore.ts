@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { apiFetch } from '../lib/api'
 import type { OrderLine } from './tableStore'
 
 export type IngredientUnit = 'g' | 'ml' | 'pcs' | 'kg' | 'L'
@@ -51,100 +52,170 @@ export interface DeductionLog {
   entries: DeductionEntry[]
 }
 
-const SEED_INGREDIENTS: Ingredient[] = [
-  { id: 'ing-1',  name: 'Espresso Beans',  unit: 'g',   stock: 850,  threshold: 200, supplier: 'Coffee Empire India' },
-  { id: 'ing-2',  name: 'Whole Milk',      unit: 'ml',  stock: 2400, threshold: 500, supplier: 'Arun Traders' },
-  { id: 'ing-3',  name: 'Sugar',           unit: 'g',   stock: 180,  threshold: 200 },
-  { id: 'ing-4',  name: 'Cardamom',        unit: 'g',   stock: 45,   threshold: 50  },
-  { id: 'ing-5',  name: 'Tea Leaves',      unit: 'g',   stock: 320,  threshold: 100, supplier: 'Local Market' },
-  { id: 'ing-6',  name: 'Bread Slices',    unit: 'pcs', stock: 12,   threshold: 20  },
-  { id: 'ing-7',  name: 'Blueberry Jam',   unit: 'g',   stock: 400,  threshold: 150, supplier: 'Big Basket' },
-  { id: 'ing-8',  name: 'Paper Cups',      unit: 'pcs', stock: 85,   threshold: 50  },
-  { id: 'ing-9',  name: 'Coconut Oil',     unit: 'ml',  stock: 600,  threshold: 100 },
-  { id: 'ing-10', name: 'Vanilla Extract', unit: 'ml',  stock: 30,   threshold: 20  },
-]
+interface ApiRecipeGroup {
+  menuItemId: string
+  menuItemName: string
+  menuItemCategory: string
+  ingredients: { ingredientId: string; qty: number }[]
+}
 
-const SEED_RECIPES: RecipeMapping[] = [
-  {
-    menuItemId: 'demo-1',
-    menuItemName: 'Masala Chai',
-    menuItemEmoji: '🍵',
-    ingredients: [
-      { ingredientId: 'ing-5', qty: 5 },
-      { ingredientId: 'ing-2', qty: 100 },
-      { ingredientId: 'ing-3', qty: 10 },
-      { ingredientId: 'ing-4', qty: 2 },
-    ],
-  },
-  {
-    menuItemId: 'demo-2',
-    menuItemName: 'Filter Coffee',
-    menuItemEmoji: '☕',
-    ingredients: [
-      { ingredientId: 'ing-1', qty: 18 },
-      { ingredientId: 'ing-2', qty: 120 },
-    ],
-  },
-  {
-    menuItemId: 'demo-3',
-    menuItemName: 'Vada Pav',
-    menuItemEmoji: '🥗',
-    ingredients: [
-      { ingredientId: 'ing-6', qty: 2 },
-    ],
-  },
-]
+interface ApiIngredient {
+  id: string
+  name: string
+  unit: string
+  stock: string | number
+  threshold: string | number
+  supplier: string | null
+}
+
+interface ApiRestock {
+  id: string
+  ingredientId: string
+  qtyAdded: string | number
+  date: string
+  note: string | null
+  createdAt: string
+}
+
+function recipeFromApi(r: ApiRecipeGroup): RecipeMapping {
+  return {
+    menuItemId: r.menuItemId,
+    menuItemName: r.menuItemName,
+    menuItemEmoji: r.menuItemCategory.split(' ')[0] ?? '☕',
+    ingredients: r.ingredients,
+  }
+}
+
+function ingFromApi(i: ApiIngredient): Ingredient {
+  return {
+    id: i.id,
+    name: i.name,
+    unit: i.unit as IngredientUnit,
+    stock: Number(i.stock),
+    threshold: Number(i.threshold),
+    supplier: i.supplier ?? undefined,
+  }
+}
+
+function restockFromApi(r: ApiRestock, loggedBy?: string): RestockEntry {
+  return {
+    id: r.id,
+    ingredientId: r.ingredientId,
+    qty: Number(r.qtyAdded),
+    date: r.date.split('T')[0],
+    note: r.note ?? undefined,
+    loggedAt: new Date(r.createdAt).getTime(),
+    loggedBy,
+  }
+}
+
+function toIsoDate(date: string): string {
+  return date.includes('T') ? date : `${date}T00:00:00.000Z`
+}
 
 interface InventoryStore {
+  // API-backed (not persisted — reloaded on mount)
   ingredients: Ingredient[]
-  recipes: RecipeMapping[]
   restockEntries: RestockEntry[]
+  loading: boolean
+  offlineFallback: boolean  // true when backend is unreachable and data came from old localStorage
+
+  // Local-persisted (recipes contain display metadata not in DB)
+  recipes: RecipeMapping[]
   deductionLogs: DeductionLog[]
-  nextIngSeq: number
-  nextRestockSeq: number
 
-  addIngredient: (data: Omit<Ingredient, 'id'>) => void
-  updateIngredient: (id: string, data: Partial<Omit<Ingredient, 'id'>>) => void
-  deleteIngredient: (id: string) => void
+  fetch: () => Promise<void>
 
-  addOrUpdateRecipe: (recipe: RecipeMapping) => void
-  removeRecipe: (menuItemId: string) => void
+  addIngredient: (data: Omit<Ingredient, 'id'>) => Promise<void>
+  updateIngredient: (id: string, data: Partial<Omit<Ingredient, 'id'>>) => Promise<void>
+  deleteIngredient: (id: string) => Promise<void>
 
-  logRestock: (data: Omit<RestockEntry, 'id' | 'loggedAt'>) => void
+  addOrUpdateRecipe: (recipe: RecipeMapping) => Promise<void>
+  removeRecipe: (menuItemId: string) => Promise<void>
+
+  logRestock: (data: Omit<RestockEntry, 'id' | 'loggedAt'>) => Promise<void>
   deductForBill: (lines: OrderLine[], compIds: string[], billId: string, at: number) => void
+  clearData: () => void
 }
+
+let fetchInProgress = false
 
 export const useInventoryStore = create<InventoryStore>()(
   persist(
     (set, get) => ({
-      ingredients: SEED_INGREDIENTS,
-      recipes: SEED_RECIPES,
+      ingredients: [],
       restockEntries: [],
+      loading: false,
+      offlineFallback: false,
+      recipes: [],
       deductionLogs: [],
-      nextIngSeq: 11,
-      nextRestockSeq: 1,
 
-      addIngredient: (data) =>
+      fetch: async () => {
+        if (fetchInProgress) return
+        fetchInProgress = true
+        set({ loading: true })
+        try {
+          const [ings, restocks, apiRecipes] = await Promise.all([
+            apiFetch<ApiIngredient[]>('GET', '/inventory/ingredients'),
+            apiFetch<ApiRestock[]>('GET', '/inventory/restock'),
+            apiFetch<ApiRecipeGroup[]>('GET', '/inventory/recipes'),
+          ])
+          set({
+            ingredients: ings.map(ingFromApi),
+            restockEntries: restocks.map((r) => restockFromApi(r)),
+            recipes: apiRecipes.map(recipeFromApi),
+            loading: false,
+            offlineFallback: false,
+          })
+        } catch {
+          set({
+            loading: false,
+            offlineFallback: true,
+            // recipes left untouched — local persisted copy survives offline
+          })
+        } finally {
+          fetchInProgress = false
+        }
+      },
+
+      addIngredient: async (data) => {
+        const ing = await apiFetch<ApiIngredient>('POST', '/inventory/ingredients', {
+          name: data.name,
+          unit: data.unit,
+          stock: data.stock,
+          threshold: data.threshold,
+          supplier: data.supplier,
+        })
+        set((s) => ({ ingredients: [...s.ingredients, ingFromApi(ing)] }))
+      },
+
+      updateIngredient: async (id, data) => {
+        const ing = await apiFetch<ApiIngredient>('PATCH', `/inventory/ingredients/${id}`, data)
         set((s) => ({
-          ingredients: [...s.ingredients, { ...data, id: `ing-${s.nextIngSeq}` }],
-          nextIngSeq: s.nextIngSeq + 1,
-        })),
+          ingredients: s.ingredients.map((i) => (i.id === id ? ingFromApi(ing) : i)),
+        }))
+      },
 
-      updateIngredient: (id, data) =>
-        set((s) => ({
-          ingredients: s.ingredients.map((i) => (i.id === id ? { ...i, ...data } : i)),
-        })),
-
-      deleteIngredient: (id) =>
+      deleteIngredient: async (id) => {
+        if (!get().offlineFallback) {
+          await apiFetch('DELETE', `/inventory/ingredients/${id}`)
+        }
         set((s) => ({
           ingredients: s.ingredients.filter((i) => i.id !== id),
           recipes: s.recipes.map((r) => ({
             ...r,
             ingredients: r.ingredients.filter((ri) => ri.ingredientId !== id),
           })),
-        })),
+        }))
+      },
 
-      addOrUpdateRecipe: (recipe) =>
+      addOrUpdateRecipe: async (recipe) => {
+        await apiFetch('PUT', `/inventory/recipes/${recipe.menuItemId}`, {
+          lines: recipe.ingredients.map((ri) => ({
+            ingredientId: ri.ingredientId,
+            qtyPerUnit: ri.qty,
+          })),
+        })
         set((s) => {
           const idx = s.recipes.findIndex((r) => r.menuItemId === recipe.menuItemId)
           if (idx >= 0) {
@@ -153,27 +224,34 @@ export const useInventoryStore = create<InventoryStore>()(
             return { recipes: updated }
           }
           return { recipes: [...s.recipes, recipe] }
-        }),
+        })
+      },
 
-      removeRecipe: (menuItemId) =>
-        set((s) => ({ recipes: s.recipes.filter((r) => r.menuItemId !== menuItemId) })),
+      removeRecipe: async (menuItemId) => {
+        await apiFetch('PUT', `/inventory/recipes/${menuItemId}`, { lines: [] })
+        set((s) => ({ recipes: s.recipes.filter((r) => r.menuItemId !== menuItemId) }))
+      },
 
-      logRestock: (data) =>
-        set((s) => {
-          const entry: RestockEntry = { ...data, id: `rst-${s.nextRestockSeq}`, loggedAt: Date.now() }
-          return {
-            ingredients: s.ingredients.map((i) =>
-              i.id === data.ingredientId ? { ...i, stock: i.stock + data.qty } : i
-            ),
-            restockEntries: [entry, ...s.restockEntries],
-            nextRestockSeq: s.nextRestockSeq + 1,
-          }
-        }),
+      logRestock: async (data) => {
+        const entry = await apiFetch<ApiRestock>('POST', '/inventory/restock', {
+          ingredientId: data.ingredientId,
+          qtyAdded: data.qty,
+          date: toIsoDate(data.date),
+          note: data.note,
+        })
+        set((s) => ({
+          ingredients: s.ingredients.map((i) =>
+            i.id === data.ingredientId ? { ...i, stock: i.stock + data.qty } : i
+          ),
+          restockEntries: [restockFromApi(entry, data.loggedBy), ...s.restockEntries],
+        }))
+      },
 
+      // Local-only deduction for the auto-deduct audit view.
+      // DB stock is not updated here — the backend billing/settle route is responsible for DB deduction.
       deductForBill: (lines, compIds, billId, at) => {
         const { ingredients, recipes } = get()
         const compSet = new Set(compIds)
-
         const deductMap: Record<string, { totalQty: number; whyParts: string[] }> = {}
 
         for (const line of lines) {
@@ -198,15 +276,7 @@ export const useInventoryStore = create<InventoryStore>()(
           const before = ing.stock
           const qty = d.totalQty
           const after = Math.max(0, before - qty)
-          entries.push({
-            ingredientId: ing.id,
-            ingredientName: ing.name,
-            unit: ing.unit,
-            before,
-            qty,
-            after,
-            why: d.whyParts.join(' + '),
-          })
+          entries.push({ ingredientId: ing.id, ingredientName: ing.name, unit: ing.unit, before, qty, after, why: d.whyParts.join(' + ') })
           return { ...ing, stock: after }
         })
 
@@ -215,7 +285,13 @@ export const useInventoryStore = create<InventoryStore>()(
           deductionLogs: [{ billId, at, entries }, ...s.deductionLogs],
         }))
       },
+
+      clearData: () => set({ ingredients: [], restockEntries: [], recipes: [], deductionLogs: [], loading: false, offlineFallback: false }),
     }),
-    { name: 'cafeOSum-inventory' }
+    {
+      name: 'cafeOSum-inventory-v2',
+      // Only persist the local-derived fields; ingredients/restock come from API on mount
+      partialize: (s) => ({ recipes: s.recipes, deductionLogs: s.deductionLogs }),
+    }
   )
 )

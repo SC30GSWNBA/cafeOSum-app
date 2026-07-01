@@ -2,8 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { useTableStore } from '../store/tableStore'
-import { useOnboardingStore } from '../store/onboardingStore'
-import type { MenuItem } from '../store/onboardingStore'
+import { useMenuStore, type MenuItem } from '../store/menuStore'
 import { AppSidebar } from '../components/AppSidebar'
 import { LanguageToggle } from '../components/LanguageToggle'
 import { useLanguageStore } from '../store/languageStore'
@@ -337,8 +336,12 @@ export function OrderEntryPage() {
   const navigate = useNavigate()
   const { isAuthenticated } = useAuthStore()
   const store = useTableStore()
-  const { menuItems } = useOnboardingStore()
+  const menuStore = useMenuStore()
+  const menuItems = menuStore.items
   const { lang } = useLanguageStore()
+
+  // Load menu items from API on mount
+  useEffect(() => { menuStore.fetch() }, [])
   const hi = lang === 'hi'
 
   const [search, setSearch] = useState('')
@@ -400,8 +403,8 @@ export function OrderEntryPage() {
   const hasUnsentItems = orderLines.some((l) => !l.sentToKitchen)
 
   // ── Kitchen actions
-  const handleKitchenConfirm = () => {
-    store.markKitchenSent(tableId!)
+  const handleKitchenConfirm = async () => {
+    await store.markKitchenSent(tableId!)
     useAuditStore.getState().addEvent({
       eventType: 'ORDER_CREATED',
       category: 'Orders',
@@ -415,8 +418,8 @@ export function OrderEntryPage() {
     setModal('sent')
   }
 
-  const handleGenerateBill = () => {
-    store.generateBill(tableId!)
+  const handleGenerateBill = async () => {
+    await store.generateBill(tableId!)
     navigate(`/billing/${tableId}`)
   }
 

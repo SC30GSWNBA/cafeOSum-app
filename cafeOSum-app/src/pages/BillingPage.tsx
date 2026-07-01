@@ -9,6 +9,7 @@ import { useOnboardingStore } from '../store/onboardingStore'
 import { useInventoryStore } from '../store/inventoryStore'
 import { useAuditStore } from '../store/auditStore'
 import { useLanguageStore } from '../store/languageStore'
+import { apiFetch } from '../lib/api'
 
 const CGST = 0.025
 const SGST = 0.025
@@ -204,6 +205,7 @@ export function BillingPage() {
   const [voidPin, setVoidPin] = useState('')
   const [voidReason, setVoidReason] = useState('')
   const [voidError, setVoidError] = useState('')
+  const [settledApiBillId, setSettledApiBillId] = useState('')
   const billNumRef = useRef(`BILL-${String(billStore.nextSeq).padStart(4, '0')}`)
 
   // After settling, tableStore.settle() clears orderLines — read from the saved bill instead
@@ -267,9 +269,25 @@ export function BillingPage() {
     setDiscVal(parseFloat(val) || 0)
   }
 
-  function handleSettle() {
+  async function handleSettle() {
     const t = calcTotals()
     const now = Date.now()
+    const apiBillId = table?.billId  // capture before settle() clears it
+
+    if (apiBillId) {
+      try {
+        await apiFetch('POST', `/billing/${apiBillId}/settle`, {
+          paymentMode: payMode,
+          cashTendered: payMode === 'cash' ? parseFloat(cashReceived) || undefined : undefined,
+          discountValue: discVal,
+          discountType: discType === 'none' ? undefined : discType === 'pct' ? 'percent' : 'flat',
+          compLineIds: [],
+        })
+      } catch {
+        // non-fatal: local settle proceeds regardless
+      }
+    }
+
     const id = billStore.addBill({
       tableId: table!.id,
       tableName: table!.name,
@@ -310,18 +328,29 @@ export function BillingPage() {
       summary: `Bill settled · ₹${Math.round(t.grandTotal).toLocaleString('en-IN')} · ${payMode.toUpperCase()}`,
     })
     setSettledBillId(id)
+    setSettledApiBillId(apiBillId ?? '')
     setSettledMode(payMode)
     setSettledAt(now)
     setStage('settled')
     setModal('none')
   }
 
-  function handleVoid() {
+  async function handleVoid() {
     setVoidError('')
     if (voidPin.length < 4) { setVoidError(hi ? '4 अंकीय PIN डालें' : 'Enter 4-digit PIN'); return }
     if (!voidReason.trim()) { setVoidError(hi ? 'कारण आवश्यक है' : 'Reason is required'); return }
     const now = Date.now()
     const reason = voidReason.trim()
+
+    // API void call — use DB bill ID from the appropriate stage
+    const apiBillId = stage === 'settled' ? settledApiBillId : table?.billId
+    if (apiBillId) {
+      try {
+        await apiFetch('POST', `/billing/${apiBillId}/void`, { pin: voidPin, reason })
+      } catch {
+        // non-fatal: local void proceeds
+      }
+    }
     if (stage === 'settled' && settledBillId) {
       billStore.voidBill(settledBillId, reason)
       useAuditStore.getState().addEvent({

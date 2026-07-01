@@ -2,21 +2,39 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { AuthState, User } from '../types'
 
+const API_BASE = 'http://localhost:3001/api/v1'
+
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
       token: null,
+      refreshToken: null,
       isAuthenticated: false,
-      login: (user: User, token: string) =>
-        set({ user, token, isAuthenticated: true }),
-      logout: () =>
-        set({ user: null, token: null, isAuthenticated: false }),
+      login: (user: User, accessToken: string, refreshToken: string) =>
+        set({ user, token: accessToken, refreshToken, isAuthenticated: true }),
+      setTokens: (accessToken: string, refreshToken: string) =>
+        set({ token: accessToken, refreshToken }),
+      logout: () => {
+        const { token, refreshToken } = get()
+        if (refreshToken && token) {
+          fetch(`${API_BASE}/auth/logout`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ refreshToken }),
+          }).catch(() => {})
+        }
+        set({ user: null, token: null, refreshToken: null, isAuthenticated: false })
+      },
     }),
     {
       name: 'cafeOSum-auth',
-      // Only persist token and user — session stays 30 days via token TTL
-      partialize: (state) => ({ user: state.user, token: state.token, isAuthenticated: state.isAuthenticated }),
+      partialize: (state) => ({
+        user: state.user,
+        token: state.token,
+        refreshToken: state.refreshToken,
+        isAuthenticated: state.isAuthenticated,
+      }),
     }
   )
 )
