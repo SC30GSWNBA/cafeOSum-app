@@ -6,6 +6,10 @@
     "cafeOSum-app",
     "cafeOSum-backend"
   ],
+  "overrides": {
+    "vite": "^5.4.19",
+    "@vitejs/plugin-react": "^4.3.4"
+  },
   "scripts": {
     "dev:app": "npm run dev --workspace=cafeOSum-app",
     "dev:api": "npm run dev --workspace=cafeOSum-backend",
