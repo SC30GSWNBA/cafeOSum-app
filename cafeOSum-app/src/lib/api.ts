@@ -1,6 +1,6 @@
 import { useAuthStore } from '../store/authStore'
 
-export const API_BASE = 'http://localhost:3001/api/v1'
+export const API_BASE = `${import.meta.env.VITE_API_URL ?? 'http://localhost:3001'}/api/v1`
 
 export class ApiError extends Error {
   readonly status: number
