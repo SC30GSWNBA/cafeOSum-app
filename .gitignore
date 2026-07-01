@@ -3,6 +3,9 @@
 
 # Dependencies
 node_modules/
+package-lock.json
+cafeOSum-app/package-lock.json
+cafeOSum-backend/package-lock.json
 
 # Build output
 dist/
