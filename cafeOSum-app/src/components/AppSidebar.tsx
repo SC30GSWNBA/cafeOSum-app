@@ -3,8 +3,6 @@ import { useAuthStore } from '../store/authStore'
 import { useMenuStore } from '../store/menuStore'
 import { useTableStore } from '../store/tableStore'
 import { useInventoryStore } from '../store/inventoryStore'
-import { useBillStore } from '../store/billStore'
-import { useAuditStore } from '../store/auditStore'
 import { useLanguageStore } from '../store/languageStore'
 
 const NAV_ITEMS = [

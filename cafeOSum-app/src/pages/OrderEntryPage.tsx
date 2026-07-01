@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
-import { useTableStore } from '../store/tableStore'
+import { useTableStore, type TableStore } from '../store/tableStore'
 import { useMenuStore, type MenuItem } from '../store/menuStore'
 import { AppSidebar } from '../components/AppSidebar'
 import { LanguageToggle } from '../components/LanguageToggle'
@@ -127,7 +127,7 @@ function CartLine({
 }: {
   line: { id: string; menuItemId: string; name: string; emoji: string; price: number; qty: number; note: string; sentToKitchen: boolean }
   tableId: string
-  store: ReturnType<typeof useTableStore>
+  store: TableStore
 }) {
   const { lang } = useLanguageStore()
   const hi = lang === 'hi'

@@ -82,7 +82,7 @@ interface ApiBillBasic {
   tableId: string
 }
 
-interface TableStore {
+export interface TableStore {
   tables: TableRecord[]
   loading: boolean
   offlineFallback: boolean

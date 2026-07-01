@@ -14,13 +14,13 @@ const step1Schema = z.object({
     .string()
     .min(1, 'Mobile number is required')
     .regex(/^\+?[\d\s\-(]{10,}$/, 'Enter a valid 10-digit mobile number'),
-  ownerName: z.string().default(''),
-  cafeType: z.string().default('Coffee Shop'),
-  address: z.string().default(''),
-  city: z.string().default(''),
-  pincode: z.string().default(''),
-  opensAt: z.string().default(''),
-  closesAt: z.string().default(''),
+  ownerName: z.string(),
+  cafeType: z.string(),
+  address: z.string(),
+  city: z.string(),
+  pincode: z.string(),
+  opensAt: z.string(),
+  closesAt: z.string(),
 })
 type Step1Values = z.infer<typeof step1Schema>
 
@@ -697,7 +697,6 @@ function Step2View({
   const [gstType, setGstType] = useState(store.gstType)
   const [businessName, setBusinessName] = useState(store.businessName)
   const [defaultCgst, setDefaultCgst] = useState(store.defaultCgst)
-  const [defaultSgst] = useState(store.defaultSgst)
   const [printFooterNote, setPrintFooterNote] = useState(store.printFooterNote)
   const [showGstinOnBills, setShowGstinOnBills] = useState(store.showGstinOnBills)
   const [autoWhatsappReceipt, setAutoWhatsappReceipt] = useState(store.autoWhatsappReceipt)
@@ -1562,19 +1561,23 @@ export function OnboardingPage() {
   }
 
   const handleStep1Next = (data: Step1Values) => {
-    store.update({ ...data, step: 2 })
+    store.update(data)
+    store.goToStep(2)
   }
 
   const handleStep2Next = (data: Partial<typeof store>) => {
-    store.update({ ...(data as Parameters<typeof store.update>[0]), step: 3 })
+    store.update(data as Parameters<typeof store.update>[0])
+    store.goToStep(3)
   }
 
   const handleStep3Next = (items: MenuItem[]) => {
-    store.update({ menuItems: items, step: 4 })
+    store.update({ menuItems: items })
+    store.goToStep(4)
   }
 
   const handleStep4Next = (tables: TableItem[]) => {
-    store.update({ tables, step: 5 })
+    store.update({ tables })
+    store.goToStep(5)
   }
 
   const handleFinish = () => {

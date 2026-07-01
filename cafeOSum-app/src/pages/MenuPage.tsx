@@ -117,8 +117,6 @@ export function MenuPage() {
 
   function setF(k: keyof FormState, v: string) { setForm((f) => ({ ...f, [k]: v })) }
 
-  const isOpen = mode !== 'none'
-
   return (
     <div style={{ display: 'flex', height: '100vh', background: C.gray50, overflow: 'hidden' }}>
       <AppSidebar activeRoute="/menu" />
