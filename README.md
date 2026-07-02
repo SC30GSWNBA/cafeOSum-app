@@ -56,9 +56,23 @@ Enterprise POS tools like Petpooja (₹1,200+/mo) or Posist (₹3,000+/mo) are e
 
 ---
 
-## Try It Now
+## Live Demo
 
-> You need both the **backend** and the **frontend** running. Takes about 5 minutes to set up.
+**Try the deployed app now — no setup required.**
+
+> [https://caseosum.netlify.app](https://caseosum.netlify.app)
+
+- Frontend hosted on **Netlify**
+- Backend API hosted on **Railway**
+- Database on **Supabase (PostgreSQL)**
+
+Click **Create a free account** to register and walk through the onboarding flow in under 5 minutes.
+
+---
+
+## Run Locally
+
+> Follow these steps only if you want to run the app on your own machine. For a quick look, use the [live demo](#live-demo) above.
 
 ### 1. Clone the repo
 
