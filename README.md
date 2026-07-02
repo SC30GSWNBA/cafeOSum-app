@@ -201,27 +201,29 @@ PRD/                       ← Product Requirements Document v1.0
 
 | | |
 |---|---|
-| Framework | React 18 + TypeScript |
-| Build | Vite |
+| Framework | React 19 + TypeScript |
+| Build | Vite 5 |
 | Styling | Tailwind CSS v3 |
-| State | Zustand (with `persist` middleware for durable stores) |
+| State | Zustand 5 (with `persist` middleware for durable stores) |
 | Forms | React Hook Form + Zod |
-| Routing | React Router v6 |
+| Routing | React Router v7 |
 | API | Custom `apiFetch` — automatic JWT refresh on 401 |
 | Bilingual | Custom `useLanguageStore` — `'en'` / `'hi'` toggle |
+| Hosting | Netlify |
 
 ### Backend
 
 | | |
 |---|---|
 | Runtime | Node.js + TypeScript |
-| Framework | Fastify |
-| ORM | Prisma |
+| Framework | Fastify 5 |
+| ORM | Prisma 6 |
 | Database | PostgreSQL via Supabase |
 | Auth | JWT (access token 15 min / refresh token 30 days) |
 | Async jobs | pg-boss (audit event queue) |
 | Real-time | Server-Sent Events (table occupancy broadcasts) |
 | GST | Custom engine — CGST + SGST split, comp-line exclusion, discount support |
+| Hosting | Railway |
 
 ---
 
