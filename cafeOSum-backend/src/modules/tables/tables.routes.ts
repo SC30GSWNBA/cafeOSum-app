@@ -88,14 +88,25 @@ export async function tableRoutes(app: FastifyInstance) {
     }
     if (!cafeId) return reply.code(404).send({ error: 'No cafe linked' })
 
+    // Take over the raw response ourselves — once headers are flushed below,
+    // Fastify must not attempt to send its own (error) response on this reply,
+    // or it crashes the process with ERR_HTTP_HEADERS_SENT.
+    reply.hijack()
+
     reply.raw.setHeader('Content-Type', 'text/event-stream')
     reply.raw.setHeader('Cache-Control', 'no-cache')
     reply.raw.setHeader('Connection', 'keep-alive')
     reply.raw.flushHeaders()
 
     // Send current state immediately on connect
-    const tables = await prisma.table.findMany({ where: { cafeId } })
-    reply.raw.write(`data: ${JSON.stringify({ type: 'INIT', tables })}\n\n`)
+    try {
+      const tables = await prisma.table.findMany({ where: { cafeId } })
+      reply.raw.write(`data: ${JSON.stringify({ type: 'INIT', tables })}\n\n`)
+    } catch (err) {
+      req.log.error(err, 'occupancy-stream: failed to load initial table state')
+      reply.raw.end()
+      return
+    }
 
     addOccupancyClient(cafeId, reply)
 
